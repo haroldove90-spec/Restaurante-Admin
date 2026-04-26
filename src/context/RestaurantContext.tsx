@@ -88,8 +88,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             items: o.items,
             totalPrice: parseFloat(o.total_price),
             status: o.status,
-            createdAt: Number(o.created_at),
-            updatedAt: Number(o.updated_at)
+            createdAt: new Date(o.created_at).getTime(),
+            updatedAt: new Date(o.updated_at).getTime()
           })));
         }
       } catch (err) {
@@ -201,7 +201,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
     if (error) {
       console.error("Error adding menu item:", error);
-      addNotification("Error al guardar el platillo", "warning");
+      addNotification(`Error al guardar platillo: ${error.message}`, "warning");
     } else {
       addNotification("Platillo guardado con éxito", "success");
     }
@@ -215,7 +215,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const { error } = await supabase.from('menu_items').update(updateData).eq('id', id);
     if (error) {
       console.error("Error updating menu item:", error);
-      addNotification("Error al actualizar platillo", "warning");
+      addNotification(`Error al actualizar platillo: ${error.message}`, "warning");
     } else {
       addNotification("Platillo actualizado", "success");
     }
@@ -223,7 +223,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const deleteMenuItem = async (id: string) => {
     const { error } = await supabase.from('menu_items').delete().eq('id', id);
-    if (error) addNotification("Error al eliminar", "warning");
+    if (error) addNotification(`Error al eliminar: ${error.message}`, "warning");
     else addNotification("Platillo eliminado", "success");
   };
 
@@ -238,7 +238,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
     if (error) {
       console.error("Error adding employee:", error);
-      addNotification("Error al guardar empleado", "warning");
+      addNotification(`Error al guardar staff: ${error.message}`, "warning");
     } else {
       addNotification("Empleado registrado", "success");
     }
@@ -253,7 +253,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const { error } = await supabase.from('employees').update(updateData).eq('id', id);
     if (error) {
       console.error("Error updating employee:", error);
-      addNotification("Error al actualizar empleado", "warning");
+      addNotification(`Error al actualizar staff: ${error.message}`, "warning");
     } else {
       addNotification("Empleado actualizado", "success");
     }
@@ -261,7 +261,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const deleteEmployee = async (id: string) => {
     const { error } = await supabase.from('employees').delete().eq('id', id);
-    if (error) addNotification("Error al eliminar empleado", "warning");
+    if (error) addNotification(`Error al eliminar staff: ${error.message}`, "warning");
     else addNotification("Empleado eliminado", "success");
   };
 
