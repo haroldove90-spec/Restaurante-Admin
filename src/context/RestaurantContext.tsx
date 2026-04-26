@@ -154,6 +154,24 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     fetchData(true);
 
+    // Initial reset check for activations (every 24h)
+    const checkResetActivations = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const lastReset = localStorage.getItem('last_activations_reset');
+
+      if (lastReset !== today) {
+        console.log('Performing daily activations reset...');
+        const { error } = await supabase.from('tables').update({ total_activations: 0 });
+        if (!error) {
+          localStorage.setItem('last_activations_reset', today);
+          fetchData(false);
+        } else {
+          console.error('Error resetting activations:', error);
+        }
+      }
+    };
+    checkResetActivations();
+
     // Set up Realtime Subscriptions
     const subFetch = () => fetchData(false);
     
@@ -197,7 +215,17 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         subFetch();
       }).subscribe(),
-      supabase.channel('order_inserts').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, subFetch).subscribe(),
+      supabase.channel('order_inserts').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+        const newOrder = payload.new as any;
+        if (newOrder) {
+          const tableNum = tablesRef.current.find(t => t.id === newOrder.table_id)?.number || '?';
+          setLastNotification({
+            message: `Nueva Orden: Mesa ${tableNum}`,
+            type: 'info'
+          });
+        }
+        subFetch();
+      }).subscribe(),
       supabase.channel('order_deletes').on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, subFetch).subscribe(),
       supabase.channel('category_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, subFetch).subscribe(),
       notificationChannel
@@ -268,7 +296,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const diners = new Set(orderData.items.map(i => i.dinerNumber || 1));
       updateTableStatus(orderData.tableId, 'occupied', diners.size);
       const tableNum = tables.find(t => t.id === orderData.tableId)?.number;
-      addNotification(`Nueva orden: Mesa ${tableNum}`, 'info');
+      const msg = `Nueva orden: Mesa ${tableNum}`;
+      addNotification(msg, 'info');
+      setLastNotification({ message: msg, type: 'info' });
     }
   };
 

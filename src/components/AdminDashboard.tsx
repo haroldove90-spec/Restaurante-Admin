@@ -898,7 +898,7 @@ export const AdminDashboard: React.FC = () => {
                     <form onSubmit={(e) => {
                       e.preventDefault();
                       const formData = new FormData(e.currentTarget);
-                      const numStr = formData.get('number') as string;
+                      const numStr = (formData.get('number') as string).trim();
                       const capStr = formData.get('capacity') as string;
                       
                       const num = parseInt(numStr);
@@ -908,14 +908,14 @@ export const AdminDashboard: React.FC = () => {
                         addTable(num, cap);
                         setIsAddingTable(false);
                       } else {
-                        alert('Por favor ingresa números válidos para mesa y capacidad');
+                        alert('Por favor un número válido para la mesa y una capacidad válida');
                       }
                     }} className="space-y-5">
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Número de Mesa</label>
                         <input 
                           name="number" 
-                          type="text" 
+                          type="number" 
                           placeholder="Ej: 1, 2, 3..." 
                           required 
                           autoFocus 

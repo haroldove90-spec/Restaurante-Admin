@@ -24,7 +24,7 @@ import { cn, formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 export const WaiterDashboard: React.FC = () => {
   const { 
@@ -150,14 +150,29 @@ export const WaiterDashboard: React.FC = () => {
       formatCurrency(order.totalPrice)
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 40,
-      head: [['ID Orden', 'Hora', 'Total']],
+      head: [['ID ORDEN', 'HORA', 'TOTAL']],
       body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [24, 24, 24] },
+      columnStyles: {
+        2: { halign: 'right' }
+      }
     });
 
-    doc.text(`Ventas Totales: ${formatCurrency(myTotalSales)}`, 20, (doc as any).lastAutoTable.finalY + 10);
-    doc.save(`mis_ventas_${new Date().toISOString().split('T')[0]}.pdf`);
+    const finalY = (doc as any).lastAutoTable.finalY || 80;
+    doc.setFontSize(11);
+    doc.text(`Ventas Totales: ${formatCurrency(myTotalSales)}`, 20, finalY + 15);
+    
+    try {
+      doc.save(`mis_ventas_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error('PDF Export failed:', err);
+      // Fallback
+      const docUrl = doc.output('bloburl');
+      window.open(docUrl.toString());
+    }
   };
 
   const handleCompleteOrder = () => {
@@ -296,11 +311,11 @@ export const WaiterDashboard: React.FC = () => {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {tables.map(table => (
-                  <button
+                  <div
                     key={table.id}
                     onClick={() => handleTableSelect(table)}
                     className={cn(
-                      "relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all p-4",
+                      "relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all p-4 cursor-pointer",
                       table.status === 'available' ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:border-emerald-300" :
                       table.status === 'occupied' ? "border-blue-100 bg-blue-50 text-blue-700 hover:border-blue-300 shadow-inner" :
                       "border-orange-100 bg-orange-50 text-orange-700 hover:border-orange-300"
@@ -310,8 +325,8 @@ export const WaiterDashboard: React.FC = () => {
                     <span className="text-3xl font-black">{table.number}</span>
                     
                     {table.totalActivations !== undefined && (
-                      <div className="absolute top-2 right-2 text-[8px] font-black bg-neutral-100 text-neutral-400 px-1.5 py-0.5 rounded-full">
-                        {table.totalActivations}v
+                      <div className="absolute top-2 right-2 bg-emerald-50 text-emerald-600 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-100 shadow-sm">
+                        {table.totalActivations} ACTIVACIONES
                       </div>
                     )}
                     
@@ -334,13 +349,13 @@ export const WaiterDashboard: React.FC = () => {
                                 const allReady = order?.items.every(i => i.status === 'ready');
                                 const someCooking = order?.items.some(i => i.status === 'cooking');
                                 
-                                return (
-                                  <>
-                                    <div className={cn("w-3 h-3 rounded-full border border-neutral-200", order ? "bg-orange-500" : "bg-neutral-50")}></div>
-                                    <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", someCooking ? "bg-amber-400" : "bg-neutral-50")}></div>
-                                    <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", allReady ? "bg-emerald-500" : "bg-neutral-50")}></div>
-                                  </>
-                                );
+                                  return (
+                                    <div className="flex gap-1.5 mt-1 border-t border-neutral-100/50 pt-1.5">
+                                      <div className={cn("w-3.5 h-3.5 rounded-full border border-white shadow-sm transition-colors duration-500", order ? "bg-orange-500 animate-pulse" : "bg-neutral-200")} title="Orden Activa"></div>
+                                      <div className={cn("w-3.5 h-3.5 rounded-full border border-white shadow-sm transition-colors duration-500", someCooking ? "bg-amber-400 animate-pulse" : "bg-neutral-200")} title="En Cocina"></div>
+                                      <div className={cn("w-3.5 h-3.5 rounded-full border border-white shadow-sm transition-colors duration-500", allReady ? "bg-emerald-500 animate-bounce" : "bg-neutral-200")} title="Listo para Servir"></div>
+                                    </div>
+                                  );
                               })()}
                             </div>
                           </>
@@ -377,7 +392,7 @@ export const WaiterDashboard: React.FC = () => {
                     {table.status === 'occupied' && (
                       <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                     )}
-                  </button>
+                  </div>
                 ))}
               </div>
             )}

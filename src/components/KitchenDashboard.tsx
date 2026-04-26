@@ -3,15 +3,28 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRestaurant } from '../context/RestaurantContext';
-import { Clock, CheckCircle2, PlayCircle, BarChart3, ChefHat, History, Utensils } from 'lucide-react';
+import { Clock, CheckCircle2, PlayCircle, BarChart3, ChefHat, History, Utensils, Bell, X, Download } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export const KitchenDashboard: React.FC = () => {
-  const { orders, updateOrderItemStatus, tables } = useRestaurant();
+  const { orders, updateOrderItemStatus, tables, lastNotification, clearNotification } = useRestaurant();
   const [activeTab, setActiveTab] = useState<'pending' | 'prepared'>('pending');
+  const [selectedPreparedItems, setSelectedPreparedItems] = useState<string[]>([]);
+
+  // Auto-clear notification
+  useEffect(() => {
+    if (lastNotification) {
+      const timer = setTimeout(() => {
+        if (clearNotification) clearNotification();
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [lastNotification, clearNotification]);
 
   const activeOrders = orders.filter(o => o.status === 'active');
   const completedOrders = orders.filter(o => o.status === 'completed');
@@ -23,8 +36,69 @@ export const KitchenDashboard: React.FC = () => {
   // Prepared items: Flat list of items marked as 'ready' from both active and completed orders
   const allReadyItems = [...activeOrders, ...completedOrders].flatMap(order => 
     order.items.filter(i => i.status === 'ready' || i.status === 'served')
-      .map(item => ({ ...item, orderDate: Number(order.createdAt), tableId: order.tableId, orderId: order.id }))
+      .map(item => ({ 
+        ...item, 
+        orderDate: Number(order.createdAt), 
+        tableId: order.tableId, 
+        orderId: order.id,
+        selectionId: `${order.id}-${item.id}`
+      }))
   ).sort((a: any, b: any) => Number(b.orderDate) - Number(a.orderDate));
+
+  const exportPreparedToPDF = () => {
+    const itemsToExport = selectedPreparedItems.length > 0
+      ? allReadyItems.filter(item => selectedPreparedItems.includes(item.selectionId))
+      : allReadyItems;
+
+    if (itemsToExport.length === 0) {
+      alert("No hay platillos preparados para exportar");
+      return;
+    }
+
+    const doc = new jsPDF();
+    doc.setFontSize(20);
+    doc.text('RESTAURANTE PRO - KDS', 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Reporte de Platillos Preparados - ${new Date().toLocaleString()}`, 14, 28);
+    
+    const tableData = itemsToExport.map(item => [
+      `#${item.orderId.slice(-6)}`,
+      `MESA ${tables.find(t => t.id === item.tableId)?.number || '?'}`,
+      item.name,
+      item.quantity.toString(),
+      new Date(item.orderDate).toLocaleTimeString()
+    ]);
+
+    autoTable(doc, {
+      startY: 35,
+      head: [['ORDEN', 'MESA', 'PLATILLO', 'CANT', 'HORA']],
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [24, 24, 24] }
+    });
+
+    try {
+      doc.save(`reporte_cocina_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error('Kitchen PDF Error:', err);
+      const docUrl = doc.output('bloburl');
+      window.open(docUrl.toString());
+    }
+  };
+
+  const toggleItemSelection = (id: string) => {
+    setSelectedPreparedItems(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAllSelection = () => {
+    if (selectedPreparedItems.length === allReadyItems.length) {
+      setSelectedPreparedItems([]);
+    } else {
+      setSelectedPreparedItems(allReadyItems.map(i => i.selectionId));
+    }
+  };
 
   // Metrics
   const totalPreparedCount = allReadyItems.length;
@@ -36,7 +110,40 @@ export const KitchenDashboard: React.FC = () => {
   const topItem = Object.entries(mostPreparedItems).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      <AnimatePresence>
+        {lastNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: -50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.9 }}
+            className={cn(
+              "fixed top-24 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 px-8 py-5 rounded-[2.5rem] shadow-2xl border-2 min-w-[350px] backdrop-blur-xl",
+              lastNotification.type === 'success' 
+                ? "bg-emerald-600/90 border-emerald-400 text-white" 
+                : "bg-neutral-900/90 border-neutral-700 text-white"
+            )}
+          >
+            <div className={cn(
+              "w-12 h-12 rounded-2xl flex items-center justify-center",
+              lastNotification.type === 'success' ? "bg-white/20" : "bg-white/10"
+            )}>
+              <Bell className="animate-bounce" size={24} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Alerta de Sistema</p>
+              <p className="font-black text-lg">{lastNotification.message}</p>
+            </div>
+            <button 
+              onClick={clearNotification}
+              className="p-1 hover:bg-white/10 rounded-full transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-neutral-900">KDS - Pantalla de Cocina</h1>
@@ -197,14 +304,37 @@ export const KitchenDashboard: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-[2.5rem] border border-neutral-100 overflow-hidden shadow-sm">
-            <div className="p-6 border-b border-neutral-50 flex items-center gap-2">
-              <History size={20} className="text-neutral-400" />
-              <h3 className="font-black text-neutral-900 uppercase tracking-widest text-xs">Historial de Preparación</h3>
+            <div className="p-6 border-b border-neutral-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-2">
+                <History size={20} className="text-neutral-400" />
+                <h3 className="font-black text-neutral-900 uppercase tracking-widest text-xs">Historial de Preparación</h3>
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto">
+                {selectedPreparedItems.length > 0 && (
+                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest bg-blue-50 px-3 py-1 rounded-full">
+                    {selectedPreparedItems.length} seleccionados
+                  </span>
+                )}
+                <button 
+                  onClick={exportPreparedToPDF}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-neutral-900 text-white rounded-xl text-[10px] font-black hover:bg-black transition-all shadow-lg active:scale-95"
+                >
+                  <Download size={14} /> EXPORTAR PDF
+                </button>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
                   <tr className="bg-neutral-50 text-[10px] font-black text-neutral-400 uppercase tracking-widest">
+                    <th className="px-8 py-4 w-10">
+                      <input 
+                        type="checkbox" 
+                        checked={allReadyItems.length > 0 && selectedPreparedItems.length === allReadyItems.length}
+                        onChange={toggleAllSelection}
+                        className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                      />
+                    </th>
                     <th className="px-8 py-4">ID Pedido</th>
                     <th className="px-8 py-4">Mesa</th>
                     <th className="px-8 py-4">Platillo</th>
@@ -216,8 +346,24 @@ export const KitchenDashboard: React.FC = () => {
                   {allReadyItems.length > 0 ? (
                     allReadyItems.map((item, idx) => {
                       const tableNum = tables.find(t => t.id === item.tableId)?.number || '?';
+                      const isSelected = selectedPreparedItems.includes(item.selectionId);
                       return (
-                        <tr key={idx} className="hover:bg-neutral-50 transition-colors">
+                        <tr 
+                          key={item.selectionId} 
+                          className={cn(
+                            "hover:bg-neutral-50 transition-colors cursor-pointer",
+                            isSelected && "bg-neutral-50/80"
+                          )}
+                          onClick={() => toggleItemSelection(item.selectionId)}
+                        >
+                          <td className="px-8 py-4" onClick={(e) => e.stopPropagation()}>
+                            <input 
+                              type="checkbox" 
+                              checked={isSelected}
+                              onChange={() => toggleItemSelection(item.selectionId)}
+                              className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
+                            />
+                          </td>
                           <td className="px-8 py-4 font-mono text-[10px] font-bold text-blue-600">#{item.orderId.slice(-6)}</td>
                           <td className="px-8 py-4"><span className="px-2 py-1 bg-neutral-100 rounded-lg font-black text-xs">MESA {tableNum}</span></td>
                           <td className="px-8 py-4 font-bold">{item.name}</td>
@@ -228,7 +374,7 @@ export const KitchenDashboard: React.FC = () => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={5} className="px-8 py-12 text-center text-neutral-400 italic">No hay historial de platillos preparados aún.</td>
+                      <td colSpan={6} className="px-8 py-12 text-center text-neutral-400 italic">No hay historial de platillos preparados aún.</td>
                     </tr>
                   )}
                 </tbody>
