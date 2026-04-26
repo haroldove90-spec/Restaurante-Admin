@@ -40,6 +40,8 @@ interface RestaurantContextType extends RestaurantState {
   uploadImage: (file: File) => Promise<string | null>;
   addNotification: (message: string, type?: Notification['type']) => void;
   removeNotification: (id: string) => void;
+  lastNotification: { message: string; type: 'info' | 'success' } | null;
+  clearNotification: () => void;
 }
 
 const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
@@ -56,6 +58,14 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastNotification, setLastNotification] = useState<{ message: string; type: 'info' | 'success' } | null>(null);
+
+  const tablesRef = React.useRef<Table[]>([]);
+  useEffect(() => {
+    tablesRef.current = tables;
+  }, [tables]);
+
+  const clearNotification = () => setLastNotification(null);
 
   const setRole = (role: Role) => {
     setRoleState(role);
@@ -158,7 +168,37 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       supabase.channel('menu_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, subFetch).subscribe(),
       supabase.channel('table_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, subFetch).subscribe(),
       supabase.channel('employee_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, subFetch).subscribe(),
-      supabase.channel('order_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, subFetch).subscribe(),
+      supabase.channel('order_changes').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+        const newOrder = payload.new as any;
+        const oldOrder = payload.old as any;
+        
+        if (newOrder && oldOrder) {
+          const newItems = newOrder.items || [];
+          const oldItems = oldOrder.items || [];
+          
+          newItems.forEach((item: any, idx: number) => {
+            const oldItem = oldItems[idx];
+            if (!oldItem) return;
+
+            if (item.status === 'cooking' && oldItem.status === 'pending') {
+              const tableNum = tablesRef.current.find(t => t.id === newOrder.table_id)?.number || '?';
+              setLastNotification({
+                message: `Cocina preparando: ${item.name} (Mesa ${tableNum})`,
+                type: 'info'
+              });
+            } else if (item.status === 'ready' && oldItem.status === 'cooking') {
+              const tableNum = tablesRef.current.find(t => t.id === newOrder.table_id)?.number || '?';
+              setLastNotification({
+                message: `¡LISTO!: ${item.name} (Mesa ${tableNum})`,
+                type: 'success'
+              });
+            }
+          });
+        }
+        subFetch();
+      }).subscribe(),
+      supabase.channel('order_inserts').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, subFetch).subscribe(),
+      supabase.channel('order_deletes').on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, subFetch).subscribe(),
       supabase.channel('category_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, subFetch).subscribe(),
       notificationChannel
     ];
@@ -468,7 +508,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       deleteTable,
       uploadImage,
       addNotification,
-      removeNotification
+      removeNotification,
+      lastNotification,
+      clearNotification
     }}>
       {children}
     </RestaurantContext.Provider>

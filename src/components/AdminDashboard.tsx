@@ -115,7 +115,12 @@ export const AdminDashboard: React.FC = () => {
       ? `ventas_seleccionadas_${new Date().getTime()}.pdf`
       : `ventas_diarias_${new Date().toISOString().split('T')[0]}.pdf`;
 
-    doc.save(fileName);
+    try {
+      doc.save(fileName);
+      console.log('PDF Export successful');
+    } catch (err) {
+      console.error('PDF Export failed:', err);
+    }
   };
 
   return (
@@ -357,16 +362,16 @@ export const AdminDashboard: React.FC = () => {
 
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Nombre</label>
-                        <input name="name" defaultValue={editingItem?.name} required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold" />
+                        <input name="name" defaultValue={editingItem?.name} required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold text-neutral-900" />
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Descripción corta</label>
-                        <textarea name="description" defaultValue={editingItem?.description} required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 min-h-[100px] text-sm font-medium" />
+                        <textarea name="description" defaultValue={editingItem?.description} required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 min-h-[100px] text-sm font-medium text-neutral-900" />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Precio</label>
-                          <input name="price" type="number" step="0.01" defaultValue={editingItem?.price} required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-black" />
+                          <input name="price" type="number" step="0.01" defaultValue={editingItem?.price} required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-black text-neutral-900" />
                         </div>
                         <div className="space-y-1.5 overflow-visible relative">
                           <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Categoría</label>
@@ -374,7 +379,7 @@ export const AdminDashboard: React.FC = () => {
                             <select 
                               name="category" 
                               defaultValue={editingItem?.category || (categories.length > 0 ? categories[0].name : '')} 
-                              className="w-full px-5 py-4 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold appearance-none cursor-pointer text-sm"
+                              className="w-full px-5 py-4 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold appearance-none cursor-pointer text-sm text-neutral-900"
                             >
                               {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                             </select>
@@ -482,7 +487,7 @@ export const AdminDashboard: React.FC = () => {
                       <div className="space-y-4">
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Nombre de la Categoría</label>
-                          <input name="name" required autoFocus className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold" />
+                          <input name="name" required autoFocus className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold text-neutral-900" />
                         </div>
                         <div className="flex gap-3 pt-4">
                           <button type="button" onClick={() => setIsAddingCategory(false)} className="flex-1 font-black text-neutral-400 hover:text-neutral-600 uppercase tracking-widest text-xs">Cerrar</button>
@@ -878,11 +883,11 @@ export const AdminDashboard: React.FC = () => {
                     }} className="space-y-5">
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Número de Mesa</label>
-                        <input name="number" type="number" required autoFocus className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold" />
+                        <input name="number" type="text" inputMode="numeric" pattern="[0-9]*" required autoFocus className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold text-neutral-900" />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Capacidad (Personas)</label>
-                        <input name="capacity" type="number" defaultValue="4" required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold" />
+                         <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Capacidad (Personas)</label>
+                        <input name="capacity" type="text" inputMode="numeric" pattern="[0-9]*" defaultValue="4" required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold text-neutral-900" />
                       </div>
                       <div className="flex gap-4 pt-4">
                         <button type="button" onClick={() => setIsAddingTable(false)} className="flex-1 font-black text-neutral-400 hover:text-neutral-600 uppercase tracking-widest text-sm">Cerrar</button>

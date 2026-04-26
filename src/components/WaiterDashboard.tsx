@@ -3,10 +3,23 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRestaurant } from '../context/RestaurantContext';
 import { Table, MenuItem, OrderItem, Category } from '../types';
-import { Plus, Minus, Search, Trash2, ArrowLeft, CheckCircle, Utensils, Wallet, Download } from 'lucide-react';
+import { 
+  Plus, 
+  Minus, 
+  Search, 
+  Trash2, 
+  ArrowLeft, 
+  CheckCircle, 
+  Utensils, 
+  Wallet, 
+  Download, 
+  X, 
+  Bell, 
+  AlertCircle 
+} from 'lucide-react';
 import { cn, formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -14,8 +27,30 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 export const WaiterDashboard: React.FC = () => {
-  const { tables, menu, orders, addOrder, updateTableStatus, completeOrder, employees, categories: rawCategories } = useRestaurant();
+  const { 
+    tables, 
+    menu, 
+    orders, 
+    addOrder, 
+    updateTableStatus, 
+    completeOrder, 
+    employees, 
+    categories: rawCategories,
+    lastNotification,
+    clearNotification
+  } = useRestaurant();
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+
+  // Auto-clear notification
+  useEffect(() => {
+    if (lastNotification) {
+      const timer = setTimeout(() => {
+        if (clearNotification) clearNotification();
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [lastNotification, clearNotification]);
+
   const [numDiners, setNumDiners] = useState<number>(0);
   const [activeDiner, setActiveDiner] = useState<number>(1);
   const [cart, setCart] = useState<OrderItem[]>([]);
@@ -152,7 +187,43 @@ export const WaiterDashboard: React.FC = () => {
             exit={{ opacity: 0 }}
             className="space-y-6"
           >
-            <header className="flex justify-between items-center">
+            {/* Notifications Overlay */}
+      <div className="fixed top-20 right-6 z-50 flex flex-col gap-3 pointer-events-none">
+        <AnimatePresence>
+          {lastNotification && (
+            <motion.div
+              initial={{ opacity: 0, x: 50, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 20, scale: 0.9 }}
+              className={cn(
+                "pointer-events-auto flex items-center gap-3 px-6 py-4 rounded-[2rem] shadow-2xl border-2 min-w-[300px]",
+                lastNotification.type === 'success' 
+                  ? "bg-emerald-600 border-emerald-400 text-white" 
+                  : "bg-neutral-900 border-neutral-700 text-white"
+              )}
+            >
+              <div className={cn(
+                "w-10 h-10 rounded-2xl flex items-center justify-center",
+                lastNotification.type === 'success' ? "bg-white/20" : "bg-white/10"
+              )}>
+                {lastNotification.type === 'success' ? <Bell className="animate-bounce" size={20} /> : <AlertCircle size={20} />}
+              </div>
+              <div className="flex-1">
+                <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Notificación de Cocina</p>
+                <p className="font-black text-sm">{lastNotification.message}</p>
+              </div>
+              <button 
+                onClick={clearNotification}
+                className="p-1 hover:bg-white/10 rounded-full transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <header className="flex justify-between items-center">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Salón de Mesas</h1>
                 <p className="text-neutral-500 text-sm">Selecciona una mesa para gestionar su orden.</p>
