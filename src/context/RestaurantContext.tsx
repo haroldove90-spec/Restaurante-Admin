@@ -37,6 +37,7 @@ interface RestaurantContextType extends RestaurantState {
   deleteEmployee: (id: string) => void;
   addTable: (num: number, cap: number) => void;
   deleteTable: (id: string) => void;
+  assignWaiterToTable: (tableId: string, waiterId: string | null) => Promise<void>;
   uploadImage: (file: File) => Promise<string | null>;
   addNotification: (message: string, type?: Notification['type']) => void;
   removeNotification: (id: string) => void;
@@ -108,7 +109,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             status: t.status,
             capacity: t.capacity,
             currentDiners: t.current_diners || 0,
-            totalActivations: t.total_activations || 0
+            totalActivations: t.total_activations || 0,
+            assignedWaiterId: t.assigned_waiter_id || null
           })));
         }
         if (categoriesData && categoriesData.length > 0) {
@@ -492,6 +494,21 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     else addNotification("Mesa eliminada", "success");
   };
 
+  const assignWaiterToTable = async (tableId: string, waiterId: string | null) => {
+    const { error } = await supabase.from('tables').update({
+      assigned_waiter_id: waiterId
+    }).eq('id', tableId);
+
+    if (error) {
+      console.error("Error assigning waiter:", error);
+      addNotification(`Error al asignar mesero: ${error.message}`, "warning");
+    } else {
+      const tableNum = tables.find(t => t.id === tableId)?.number;
+      const waiterName = employees.find(e => e.id === waiterId)?.name || 'Nadie';
+      addNotification(`Mesa ${tableNum} asignada a ${waiterName}`, "success");
+    }
+  };
+
   const uploadImage = async (file: File) => {
     try {
       const fileExt = file.name.split('.').pop();
@@ -552,6 +569,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       deleteEmployee,
       addTable,
       deleteTable,
+      assignWaiterToTable,
       uploadImage,
       addNotification,
       removeNotification,

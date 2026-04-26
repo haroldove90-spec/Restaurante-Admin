@@ -25,3 +25,7 @@ CREATE POLICY "Allow all for menu_items" ON public.menu_items FOR ALL USING (tru
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all for orders" ON public.orders;
 CREATE POLICY "Allow all for orders" ON public.orders FOR ALL USING (true) WITH CHECK (true);
+
+-- 3. Add waiter assignment to tables
+ALTER TABLE public.tables 
+ADD COLUMN IF NOT EXISTS assigned_waiter_id TEXT;

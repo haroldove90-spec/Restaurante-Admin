@@ -27,6 +27,7 @@ export interface Table {
   capacity: number;
   currentDiners?: number; // Number of diners currently at the table
   totalActivations?: number; // Times the table has been activated
+  assignedWaiterId?: string; // ID of the waiter assigned to this table
 }
 
 export type OrderItemStatus = 'pending' | 'cooking' | 'ready' | 'served';

@@ -57,7 +57,14 @@ export const WaiterDashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | 'todos'>('todos');
   const [showSales, setShowSales] = useState(false);
-  const [selectedWaiterId, setSelectedWaiterId] = useState<string>('');
+  const [selectedWaiterId, setSelectedWaiterId] = useState<string>(() => {
+    return localStorage.getItem('waiter_session_id') || '';
+  });
+
+  const handleWaiterSelect = (id: string) => {
+    setSelectedWaiterId(id);
+    localStorage.setItem('waiter_session_id', id);
+  };
 
   const activeOrderForTable = orders.find(o => o.tableId === selectedTable?.id && o.status === 'active');
 
@@ -187,8 +194,15 @@ export const WaiterDashboard: React.FC = () => {
   const filteredMenu = menu.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           item.category.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = activeCategory === 'todos' || item.category === activeCategory;
+    // Normalize comparison for categories
+    const matchesCategory = activeCategory === 'todos' || 
+                            item.category.trim().toUpperCase() === activeCategory.trim().toUpperCase();
     return matchesSearch && matchesCategory;
+  });
+
+  const filteredTables = tables.filter(table => {
+    if (!selectedWaiterId) return true;
+    return !table.assignedWaiterId || table.assignedWaiterId === selectedWaiterId;
   });
 
   return (
@@ -247,7 +261,7 @@ export const WaiterDashboard: React.FC = () => {
                 {waiters.length > 0 && !showSales && (
                   <select 
                     value={selectedWaiterId} 
-                    onChange={(e) => setSelectedWaiterId(e.target.value)}
+                    onChange={(e) => handleWaiterSelect(e.target.value)}
                     className="bg-neutral-50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-neutral-900"
                   >
                     <option value="">Seleccionar Mesero</option>
@@ -312,7 +326,7 @@ export const WaiterDashboard: React.FC = () => {
             </motion.div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {tables.map(table => (
+                {filteredTables.map(table => (
                   <div
                     key={table.id}
                     onClick={() => handleTableSelect(table)}

@@ -25,7 +25,7 @@ export const CustomerDashboard: React.FC = () => {
 
   const filteredMenu = activeCategory === 'todos' 
     ? menu 
-    : menu.filter(item => item.category === activeCategory);
+    : menu.filter(item => item.category.trim().toUpperCase() === activeCategory.trim().toUpperCase());
 
   return (
     <div className="max-w-xl mx-auto space-y-8 pb-20">
