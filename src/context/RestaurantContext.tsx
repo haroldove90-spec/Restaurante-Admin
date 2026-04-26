@@ -6,6 +6,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Table, Order, MenuItem, RestaurantState, OrderItemStatus, OrderStatus, Role, Employee } from '../types';
 import { INITIAL_MENU, INITIAL_TABLES } from '../constants';
+import { supabase } from '../lib/supabase';
 
 export interface Notification {
   id: string;
@@ -17,6 +18,7 @@ export interface Notification {
 interface RestaurantContextType extends RestaurantState {
   currentRole: Role;
   notifications: Notification[];
+  loading: boolean;
   setRole: (role: Role) => void;
   updateTableStatus: (tableId: string, status: Table['status']) => void;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
@@ -38,33 +40,64 @@ const RestaurantContext = createContext<RestaurantContextType | undefined>(undef
 
 export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentRole, setRole] = useState<Role>('admin');
-  const [tables, setTables] = useState<Table[]>(INITIAL_TABLES);
-  const [menu, setMenu] = useState<MenuItem[]>(INITIAL_MENU);
+  const [tables, setTables] = useState<Table[]>([]);
+  const [menu, setMenu] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Local storage persistence for the demo session
+  // Initialize and Subscribe
   useEffect(() => {
-    const savedOrders = localStorage.getItem('restoflow_orders');
-    if (savedOrders) setOrders(JSON.parse(savedOrders));
-    
-    const savedTables = localStorage.getItem('restoflow_tables');
-    if (savedTables) setTables(JSON.parse(savedTables));
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [
+          { data: menuData },
+          { data: tablesData },
+          { data: employeesData },
+          { data: ordersData }
+        ] = await Promise.all([
+          supabase.from('menu_items').select('*'),
+          supabase.from('tables').select('*').order('number'),
+          supabase.from('employees').select('*'),
+          supabase.from('orders').select('*')
+        ]);
 
-    const savedMenu = localStorage.getItem('restoflow_menu');
-    if (savedMenu) setMenu(JSON.parse(savedMenu));
+        if (menuData) setMenu(menuData);
+        if (tablesData) setTables(tablesData);
+        if (employeesData) setEmployees(employeesData);
+        if (ordersData) setOrders(ordersData.map(o => ({
+          id: o.id,
+          tableId: o.table_id, // map snake_case to camelCase
+          waiterId: o.waiter_id,
+          items: o.items,
+          totalPrice: parseFloat(o.total_price),
+          status: o.status,
+          createdAt: Number(o.created_at),
+          updatedAt: Number(o.updated_at)
+        })));
+      } catch (err) {
+        console.error('Error fetching Supabase data:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    const savedEmployees = localStorage.getItem('restoflow_employees');
-    if (savedEmployees) setEmployees(JSON.parse(savedEmployees));
+    fetchData();
+
+    // Set up Realtime Subscriptions
+    const channels = [
+      supabase.channel('menu_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, fetchData).subscribe(),
+      supabase.channel('table_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, fetchData).subscribe(),
+      supabase.channel('employee_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, fetchData).subscribe(),
+      supabase.channel('order_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchData).subscribe(),
+    ];
+
+    return () => {
+      channels.forEach(ch => supabase.removeChannel(ch));
+    };
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('restoflow_orders', JSON.stringify(orders));
-    localStorage.setItem('restoflow_tables', JSON.stringify(tables));
-    localStorage.setItem('restoflow_menu', JSON.stringify(menu));
-    localStorage.setItem('restoflow_employees', JSON.stringify(employees));
-  }, [orders, tables, menu, employees]);
 
   const addNotification = (message: string, type: Notification['type'] = 'info') => {
     const newNotif: Notification = {
@@ -80,88 +113,93 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  const updateTableStatus = (tableId: string, status: Table['status']) => {
-    setTables(prev => prev.map(t => t.id === tableId ? { ...t, status } : t));
+  const updateTableStatus = async (tableId: string, status: Table['status']) => {
+    await supabase.from('tables').update({ status }).eq('id', tableId);
   };
 
-  const addOrder = (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newOrder: Order = {
-      ...orderData,
-      id: `o${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    setOrders(prev => [...prev, newOrder]);
-    updateTableStatus(orderData.tableId, 'occupied');
+  const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const id = `o${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const now = Date.now();
     
-    const tableNum = tables.find(t => t.id === orderData.tableId)?.number;
-    addNotification(`Nueva orden: Mesa ${tableNum}`, 'info');
+    const { error } = await supabase.from('orders').insert({
+      id,
+      table_id: orderData.tableId,
+      waiter_id: orderData.waiterId,
+      total_price: orderData.totalPrice,
+      status: orderData.status,
+      items: orderData.items,
+      created_at: now,
+      updated_at: now
+    });
+
+    if (!error) {
+      updateTableStatus(orderData.tableId, 'occupied');
+      const tableNum = tables.find(t => t.id === orderData.tableId)?.number;
+      addNotification(`Nueva orden: Mesa ${tableNum}`, 'info');
+    }
   };
 
-  const updateOrderItemStatus = (orderId: string, itemId: string, status: OrderItemStatus) => {
-    setOrders(prev => prev.map(o => {
-      if (o.id !== orderId) return o;
-      
-      const newItems = o.items.map(item => {
-        if (item.id === itemId) {
-          // Trigger notification if status is ready
-          if (status === 'ready') {
-            const tableNum = tables.find(t => t.id === o.tableId)?.number;
-            addNotification(`${item.name} de Mesa ${tableNum} está LISTO`, 'success');
-          }
-          return { ...item, status };
+  const updateOrderItemStatus = async (orderId: string, itemId: string, status: OrderItemStatus) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const newItems = order.items.map(item => {
+      if (item.id === itemId) {
+        if (status === 'ready') {
+          const tableNum = tables.find(t => t.id === order.tableId)?.number;
+          addNotification(`${item.name} de Mesa ${tableNum} está LISTO`, 'success');
         }
-        return item;
-      });
+        return { ...item, status };
+      }
+      return item;
+    });
 
-      return {
-        ...o,
-        updatedAt: Date.now(),
-        items: newItems
-      };
-    }));
+    await supabase.from('orders').update({ 
+      items: newItems,
+      updated_at: Date.now()
+    }).eq('id', orderId);
   };
 
-  const completeOrder = (orderId: string) => {
+  const completeOrder = async (orderId: string) => {
     const order = orders.find(o => o.id === orderId);
     if (order) {
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'completed', updatedAt: Date.now() } : o));
+      await supabase.from('orders').update({ status: 'completed', updated_at: Date.now() }).eq('id', orderId);
       updateTableStatus(order.tableId, 'dirty');
     }
   };
 
-  const cancelOrder = (orderId: string) => {
+  const cancelOrder = async (orderId: string) => {
     const order = orders.find(o => o.id === orderId);
     if (order) {
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'cancelled', updatedAt: Date.now() } : o));
+      await supabase.from('orders').update({ status: 'cancelled', updated_at: Date.now() }).eq('id', orderId);
       updateTableStatus(order.tableId, 'available');
     }
   };
 
-  const addMenuItem = (item: Omit<MenuItem, 'id'>) => {
-    const newItem: MenuItem = { ...item, id: `m${Date.now()}-${Math.random().toString(36).substr(2, 9)}` };
-    setMenu(prev => [...prev, newItem]);
+  const addMenuItem = async (item: Omit<MenuItem, 'id'>) => {
+    const id = `m${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    await supabase.from('menu_items').insert({ ...item, id });
   };
 
-  const updateMenuItem = (id: string, item: Partial<MenuItem>) => {
-    setMenu(prev => prev.map(m => m.id === id ? { ...m, ...item } : m));
+  const updateMenuItem = async (id: string, item: Partial<MenuItem>) => {
+    await supabase.from('menu_items').update(item).eq('id', id);
   };
 
-  const deleteMenuItem = (id: string) => {
-    setMenu(prev => prev.filter(m => m.id !== id));
+  const deleteMenuItem = async (id: string) => {
+    await supabase.from('menu_items').delete().eq('id', id);
   };
 
-  const addEmployee = (emp: Omit<Employee, 'id'>) => {
-    const newEmp: Employee = { ...emp, id: `e${Date.now()}-${Math.random().toString(36).substr(2, 9)}` };
-    setEmployees(prev => [...prev, newEmp]);
+  const addEmployee = async (emp: Omit<Employee, 'id'>) => {
+    const id = `e${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    await supabase.from('employees').insert({ ...emp, id });
   };
 
-  const updateEmployee = (id: string, emp: Partial<Employee>) => {
-    setEmployees(prev => prev.map(e => e.id === id ? { ...e, ...emp } : e));
+  const updateEmployee = async (id: string, emp: Partial<Employee>) => {
+    await supabase.from('employees').update(emp).eq('id', id);
   };
 
-  const deleteEmployee = (id: string) => {
-    setEmployees(prev => prev.filter(e => e.id !== id));
+  const deleteEmployee = async (id: string) => {
+    await supabase.from('employees').delete().eq('id', id);
   };
 
   return (
@@ -173,6 +211,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       orders,
       notifications,
       employees,
+      loading,
       updateTableStatus,
       addOrder,
       updateOrderItemStatus,

@@ -18,7 +18,16 @@ import { NotificationToast } from './components/NotificationToast';
 import { Layout } from 'lucide-react';
 
 function DashboardSwitch() {
-  const { currentRole } = useRestaurant();
+  const { currentRole, loading } = useRestaurant();
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <div className="w-12 h-12 border-4 border-neutral-200 border-t-neutral-900 rounded-full animate-spin"></div>
+        <p className="text-neutral-500 font-bold animate-pulse">Sincronizando con Supabase...</p>
+      </div>
+    );
+  }
 
   switch (currentRole) {
     case 'admin': return <AdminDashboard />;
