@@ -71,7 +71,15 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           })));
         }
         if (tablesData) setTables(tablesData);
-        if (employeesData) setEmployees(employeesData);
+        if (employeesData) {
+          setEmployees(employeesData.map(e => ({
+            id: e.id,
+            name: e.name,
+            role: e.role,
+            itemsCompleted: e.items_completed || 0,
+            totalRating: parseFloat(e.total_rating) || 5.0
+          })));
+        }
         if (ordersData) {
           setOrders(ordersData.map(o => ({
             id: o.id,
@@ -221,7 +229,13 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const addEmployee = async (emp: Omit<Employee, 'id'>) => {
     const id = `e${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const { error } = await supabase.from('employees').insert({ ...emp, id });
+    const { itemsCompleted, totalRating, ...rest } = emp;
+    const { error } = await supabase.from('employees').insert({ 
+      ...rest, 
+      id,
+      items_completed: itemsCompleted,
+      total_rating: totalRating
+    });
     if (error) {
       console.error("Error adding employee:", error);
       addNotification("Error al guardar empleado", "warning");
@@ -231,7 +245,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateEmployee = async (id: string, emp: Partial<Employee>) => {
-    const { error } = await supabase.from('employees').update(emp).eq('id', id);
+    const { itemsCompleted, totalRating, ...rest } = emp;
+    const updateData: any = { ...rest };
+    if (itemsCompleted !== undefined) updateData.items_completed = itemsCompleted;
+    if (totalRating !== undefined) updateData.total_rating = totalRating;
+
+    const { error } = await supabase.from('employees').update(updateData).eq('id', id);
     if (error) {
       console.error("Error updating employee:", error);
       addNotification("Error al actualizar empleado", "warning");
