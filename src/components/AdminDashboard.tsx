@@ -13,7 +13,7 @@ import {
   TrendingUp, Users, DollarSign, ShoppingBag, 
   Plus, Edit2, Trash2, FileText, Download, 
   Image as ImageIcon, LayoutDashboard, UtensilsCrossed, Wallet,
-  UserPlus, ShieldCheck, Mail, Phone
+  UserPlus, ShieldCheck, Mail, Phone, Grid, Square, ChevronDown
 } from 'lucide-react';
 import { formatCurrency, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -21,13 +21,14 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { MenuItem, Category, Employee, EmployeeRole } from '../types';
 
-type AdminTab = 'dashboard' | 'menu' | 'categories' | 'sales' | 'employees';
+type AdminTab = 'dashboard' | 'menu' | 'categories' | 'sales' | 'employees' | 'tables';
 
 export const AdminDashboard: React.FC = () => {
   const { 
     orders, menu, addMenuItem, updateMenuItem, deleteMenuItem, 
     employees, addEmployee, updateEmployee, deleteEmployee,
     categories, addCategory, deleteCategory,
+    tables, addTable, deleteTable,
     uploadImage
   } = useRestaurant();
   const [activeTab, setActiveTabState] = useState<AdminTab>(() => {
@@ -35,10 +36,28 @@ export const AdminDashboard: React.FC = () => {
     return (saved as AdminTab) || 'dashboard';
   });
 
+  const [selectedSales, setSelectedSales] = useState<string[]>([]);
+  const [viewingOrderDetail, setViewingOrderDetail] = useState<any | null>(null);
+
+  const toggleSaleSelection = (id: string) => {
+    setSelectedSales(prev => 
+      prev.includes(id) ? prev.filter(orderId => orderId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAllSales = () => {
+    if (selectedSales.length === completedOrders.length) {
+      setSelectedSales([]);
+    } else {
+      setSelectedSales(completedOrders.map(o => o.id));
+    }
+  };
+
   const setActiveTab = (tab: AdminTab) => {
     setActiveTabState(tab);
     localStorage.setItem('restaurante_active_tab', tab);
   };
+
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -47,6 +66,7 @@ export const AdminDashboard: React.FC = () => {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [isAddingEmployee, setIsAddingEmployee] = useState(false);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [isAddingTable, setIsAddingTable] = useState(false);
 
   const completedOrders = orders.filter(o => o.status === 'completed');
   const totalRevenue = completedOrders.reduce((sum, o) => sum + o.totalPrice, 0);
@@ -60,23 +80,42 @@ export const AdminDashboard: React.FC = () => {
   const salesByWaiterData = Object.entries(waiterSales).map(([name, sales]) => ({ name, sales }));
 
   const exportSalesToPDF = () => {
+    const ordersToExport = selectedSales.length > 0 
+      ? completedOrders.filter(o => selectedSales.includes(o.id)) 
+      : completedOrders;
+
+    if (ordersToExport.length === 0) return;
+
     const doc = new jsPDF();
-    doc.text('Reporte de Ventas General - Restaurante Pro', 20, 20);
+    doc.setFontSize(18);
+    doc.text('Reporte de Ventas - Restaurante Pro', 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Fecha de reporte: ${new Date().toLocaleString()}`, 14, 28);
+    doc.text(`Total de órdenes: ${ordersToExport.length}`, 14, 34);
+    doc.text(`Ingreso total en este reporte: ${formatCurrency(ordersToExport.reduce((s, o) => s + o.totalPrice, 0))}`, 14, 40);
     
-    const tableData = completedOrders.map(order => [
-      order.id.slice(-6),
+    const tableData = ordersToExport.map(order => [
+      `#${order.id.slice(-6)}`,
       order.waiterId || '---',
       new Date(order.createdAt).toLocaleString(),
+      order.items.map(i => `${i.quantity}x ${i.name}`).join(', '),
       formatCurrency(order.totalPrice)
     ]);
 
     (doc as any).autoTable({
-      startY: 30,
-      head: [['ID Orden', 'Mesero', 'Fecha', 'Total']],
+      startY: 45,
+      head: [['ID Orden', 'Mesero', 'Fecha', 'Items', 'Total']],
       body: tableData,
+      headStyles: { fillColor: [24, 24, 24] },
+      alternateRowStyles: { fillColor: [250, 250, 250] },
+      margin: { top: 45 },
     });
 
-    doc.save(`ventas_pro_${new Date().toISOString().split('T')[0]}.pdf`);
+    const fileName = selectedSales.length > 0 
+      ? `ventas_seleccionadas_${new Date().getTime()}.pdf`
+      : `ventas_diarias_${new Date().toISOString().split('T')[0]}.pdf`;
+
+    doc.save(fileName);
   };
 
   return (
@@ -117,6 +156,12 @@ export const AdminDashboard: React.FC = () => {
             onClick={() => setActiveTab('employees')} 
             icon={<Users size={16} />}
             label="Staff" 
+          />
+          <TabButton 
+            active={activeTab === 'tables'} 
+            onClick={() => setActiveTab('tables')} 
+            icon={<Grid size={16} />}
+            label="Mesas" 
           />
         </div>
       </header>
@@ -323,15 +368,20 @@ export const AdminDashboard: React.FC = () => {
                           <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Precio</label>
                           <input name="price" type="number" step="0.01" defaultValue={editingItem?.price} required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-black" />
                         </div>
-                        <div className="space-y-1.5 overflow-visible">
+                        <div className="space-y-1.5 overflow-visible relative">
                           <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Categoría</label>
-                          <select 
-                            name="category" 
-                            defaultValue={editingItem?.category || (categories[0]?.name)} 
-                            className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold appearance-none cursor-pointer"
-                          >
-                            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                          </select>
+                          <div className="relative">
+                            <select 
+                              name="category" 
+                              defaultValue={editingItem?.category || (categories.length > 0 ? categories[0].name : '')} 
+                              className="w-full px-5 py-4 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold appearance-none cursor-pointer text-sm"
+                            >
+                              {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                            </select>
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-neutral-400">
+                              <ChevronDown size={18} />
+                            </div>
+                          </div>
                         </div>
                       </div>
 
@@ -460,12 +510,22 @@ export const AdminDashboard: React.FC = () => {
                 <h3 className="text-lg font-bold">Registro de Ingresos</h3>
                 <p className="text-sm text-neutral-500">Histórico de todas las transacciones finalizadas.</p>
               </div>
-              <button 
-                onClick={exportSalesToPDF}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-md"
-              >
-                <Download size={18} /> Exportar PDF
-              </button>
+              <div className="flex gap-2">
+                {selectedSales.length > 0 && (
+                  <button 
+                    onClick={() => setSelectedSales([])}
+                    className="px-4 py-2 text-neutral-500 font-bold text-sm hover:text-neutral-900"
+                  >
+                    Desseleccionar ({selectedSales.length})
+                  </button>
+                )}
+                <button 
+                  onClick={exportSalesToPDF}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-md"
+                >
+                  <Download size={18} /> {selectedSales.length > 0 ? `Exportar Seleccionados (${selectedSales.length})` : 'Exportar Todo (PDF)'}
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-3xl border border-neutral-200 shadow-sm overflow-hidden">
@@ -473,6 +533,14 @@ export const AdminDashboard: React.FC = () => {
                 <table className="w-full text-left">
                   <thead>
                     <tr className="bg-neutral-50 border-b border-neutral-100">
+                      <th className="px-6 py-4">
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900" 
+                          checked={completedOrders.length > 0 && selectedSales.length === completedOrders.length}
+                          onChange={toggleAllSales}
+                        />
+                      </th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">ID Orden</th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Mesero</th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Fecha y Hora</th>
@@ -484,7 +552,15 @@ export const AdminDashboard: React.FC = () => {
                   <tbody className="divide-y divide-neutral-100">
                     {completedOrders.length > 0 ? (
                       completedOrders.map(order => (
-                        <tr key={order.id} className="hover:bg-neutral-50 transition-colors">
+                        <tr key={order.id} className={cn("hover:bg-neutral-50 transition-colors", selectedSales.includes(order.id) && "bg-neutral-50")}>
+                          <td className="px-6 py-4">
+                            <input 
+                              type="checkbox" 
+                              className="rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900" 
+                              checked={selectedSales.includes(order.id)}
+                              onChange={() => toggleSaleSelection(order.id)}
+                            />
+                          </td>
                           <td className="px-6 py-4 font-mono text-xs font-bold text-blue-600">#{order.id.slice(-6)}</td>
                           <td className="px-6 py-4">
                             <span className="text-xs font-bold px-2 py-1 bg-blue-50 text-blue-600 rounded-lg">
@@ -492,30 +568,105 @@ export const AdminDashboard: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-6 py-4 text-sm text-neutral-600">{new Date(order.createdAt).toLocaleString()}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-wrap gap-1">
-                              {order.items.map((item, i) => (
-                                <span key={i} className="text-[10px] px-1.5 py-0.5 bg-neutral-100 rounded text-neutral-500 border border-neutral-200">
-                                  {item.quantity}x {item.name}
-                                </span>
-                              ))}
-                            </div>
+                          <td className="px-6 py-4 text-sm truncate max-w-[200px]">
+                            {order.items.map(i => `${i.quantity}x ${i.name}`).join(', ')}
                           </td>
                           <td className="px-6 py-4 text-right font-black">{formatCurrency(order.totalPrice)}</td>
                           <td className="px-6 py-4 text-right">
-                             <button className="text-neutral-400 hover:text-neutral-900"><FileText size={18} /></button>
+                             <button 
+                               onClick={() => setViewingOrderDetail(order)}
+                               className="text-neutral-400 hover:text-neutral-900"
+                             >
+                               <FileText size={18} />
+                             </button>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={5} className="px-6 py-12 text-center text-neutral-400 italic">No hay ventas registradas aún</td>
+                        <td colSpan={7} className="px-6 py-12 text-center text-neutral-400 italic">No hay ventas registradas aún</td>
                       </tr>
                     )}
                   </tbody>
                 </table>
               </div>
             </div>
+
+            {/* Order Detail Modal */}
+            <AnimatePresence>
+              {viewingOrderDetail && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                  <motion.div 
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                    onClick={() => setViewingOrderDetail(null)}
+                  />
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="relative bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden"
+                  >
+                    <div className="bg-neutral-900 text-white p-8">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400 mb-1">Comprobante de Venta</p>
+                          <h3 className="text-3xl font-black italic">Restaurante Pro</h3>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-neutral-400">Orden ID</p>
+                          <p className="text-lg font-black font-mono">#{viewingOrderDetail.id.slice(-6)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-8 space-y-6">
+                      <div className="flex justify-between text-sm">
+                        <div>
+                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Atendido por</p>
+                          <p className="font-black text-neutral-900">{viewingOrderDetail.waiterId || 'Mesero Demo'}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Fecha y Hora</p>
+                          <p className="font-bold text-neutral-900">{new Date(viewingOrderDetail.createdAt).toLocaleString()}</p>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-b border-neutral-100 py-6">
+                        <table className="w-full">
+                          <thead>
+                            <tr className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">
+                              <th className="text-left py-2">Item</th>
+                              <th className="text-center py-2">Cant</th>
+                              <th className="text-right py-2">Subtotal</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-neutral-50">
+                            {viewingOrderDetail.items.map((item: any, i: number) => (
+                              <tr key={i} className="text-sm font-bold text-neutral-800">
+                                <td className="py-3">{item.name}</td>
+                                <td className="py-3 text-center">{item.quantity}</td>
+                                <td className="py-3 text-right">{formatCurrency(item.price * item.quantity)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="flex justify-between items-center bg-neutral-50 p-6 rounded-2xl">
+                        <span className="text-lg font-black uppercase tracking-widest text-neutral-400">Total</span>
+                        <span className="text-3xl font-black text-neutral-900">{formatCurrency(viewingOrderDetail.totalPrice)}</span>
+                      </div>
+
+                      <button 
+                        onClick={() => setViewingOrderDetail(null)}
+                        className="w-full py-4 bg-neutral-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl"
+                      >
+                        Cerrar Detalles
+                      </button>
+                    </div>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
 
@@ -528,20 +679,20 @@ export const AdminDashboard: React.FC = () => {
             className="space-y-6"
           >
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold">Gestión de Personal</h3>
+              <h3 className="text-xl font-black">Gestión de Personal</h3>
               <button 
                 onClick={() => setIsAddingEmployee(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-xl font-bold text-sm hover:bg-black transition-all shadow-lg"
+                className="flex items-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-2xl font-black text-sm hover:bg-black transition-all shadow-xl active:scale-95"
               >
-                <UserPlus size={18} /> Nuevo Empleado
+                <UserPlus size={18} /> NUEVO EMPLEADO
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {employees.map(emp => (
-                <div key={emp.id} className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm relative group overflow-hidden">
+                <div key={emp.id} className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm relative group overflow-hidden hover:border-neutral-300 transition-all">
                   <div className={cn(
-                    "absolute top-0 right-0 w-24 h-24 rounded-full -mr-12 -mt-12 opacity-10",
+                    "absolute top-0 right-0 w-24 h-24 rounded-full -mr-12 -mt-12 opacity-5",
                     emp.role === 'chef' ? "bg-orange-600" : "bg-blue-600"
                   )} />
                   <div className="flex items-center gap-4 mb-6 relative">
@@ -553,31 +704,31 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                     <div>
                       <h4 className="font-black text-neutral-900">{emp.name}</h4>
-                      <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">{emp.role === 'chef' ? 'Cocinero' : 'Mesero'}</p>
+                      <p className="text-[10px] font-black uppercase tracking-widest text-neutral-400">{emp.role === 'chef' ? 'Cocinero' : 'Mesero'}</p>
                     </div>
                   </div>
 
                   <div className="space-y-2 mb-6">
-                    <div className="flex items-center gap-2 text-xs text-neutral-500">
+                    <div className="flex items-center gap-2 text-xs font-medium text-neutral-500">
                       <Mail size={14} className="opacity-40" /> {emp.email}
                     </div>
                     {emp.phone && (
-                      <div className="flex items-center gap-2 text-xs text-neutral-500">
+                      <div className="flex items-center gap-2 text-xs font-medium text-neutral-500">
                         <Phone size={14} className="opacity-40" /> {emp.phone}
                       </div>
                     )}
                   </div>
 
-                  <div className="flex gap-2 pt-4 border-t border-neutral-50">
+                  <div className="flex gap-2 pt-5 border-t border-neutral-50">
                     <button 
                       onClick={() => setEditingEmployee(emp)}
-                      className="flex-1 py-2 text-xs font-bold bg-neutral-50 text-neutral-600 rounded-xl hover:bg-neutral-100"
+                      className="flex-1 py-2.5 text-[10px] font-black uppercase tracking-widest bg-neutral-50 text-neutral-600 rounded-xl hover:bg-neutral-900 hover:text-white transition-all"
                     >
                       Editar
                     </button>
                     <button 
                       onClick={() => deleteEmployee(emp.id)}
-                      className="px-3 py-2 text-red-500 bg-red-50 rounded-xl hover:bg-red-100"
+                      className="px-3 py-2.5 text-red-500 bg-red-50 rounded-xl hover:bg-red-500 hover:text-white transition-all"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -586,8 +737,8 @@ export const AdminDashboard: React.FC = () => {
               ))}
 
               {employees.length === 0 && (
-                <div className="col-span-full py-20 text-center bg-neutral-50 rounded-3xl border-2 border-dashed border-neutral-200">
-                  <p className="text-neutral-400 font-medium">No has registrado empleados aún.</p>
+                <div className="col-span-full py-20 text-center bg-neutral-50 rounded-[2rem] border-2 border-dashed border-neutral-200">
+                  <p className="text-neutral-400 font-black italic tracking-tight">No has registrado empleados aún.</p>
                 </div>
               )}
             </div>
@@ -597,19 +748,15 @@ export const AdminDashboard: React.FC = () => {
               {(isAddingEmployee || editingEmployee) && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                   <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-black/60 backdrop-blur-md"
                     onClick={() => { setIsAddingEmployee(false); setEditingEmployee(null); }}
                   />
                   <motion.div 
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                    className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-6"
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-8"
                   >
-                    <h3 className="text-xl font-black mb-6">{isAddingEmployee ? 'Nuevo Colaborador' : 'Editar Personal'}</h3>
+                    <h3 className="text-2xl font-black mb-8 text-neutral-900">{isAddingEmployee ? 'Nuevo Colaborador' : 'Editar Personal'}</h3>
                     <form 
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -626,32 +773,114 @@ export const AdminDashboard: React.FC = () => {
                         setIsAddingEmployee(false);
                         setEditingEmployee(null);
                       }}
-                      className="space-y-4"
+                      className="space-y-5"
                     >
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Nombre Completo</label>
-                        <input name="name" defaultValue={editingEmployee?.name} required className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-100 rounded-xl focus:ring-2 focus:ring-neutral-900 outline-none" />
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Nombre Completo</label>
+                        <input name="name" defaultValue={editingEmployee?.name} required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl focus:ring-2 focus:ring-neutral-900 outline-none font-bold" />
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Email</label>
-                        <input name="email" type="email" defaultValue={editingEmployee?.email} required className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-100 rounded-xl focus:ring-2 focus:ring-neutral-900 outline-none" />
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Email</label>
+                        <input name="email" type="email" defaultValue={editingEmployee?.email} required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl focus:ring-2 focus:ring-neutral-900 outline-none font-bold" />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Celular</label>
-                          <input name="phone" defaultValue={editingEmployee?.phone} className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-100 rounded-xl focus:ring-2 focus:ring-neutral-900 outline-none" />
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Celular</label>
+                          <input name="phone" defaultValue={editingEmployee?.phone} className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl focus:ring-2 focus:ring-neutral-900 outline-none font-bold" />
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Rol</label>
-                          <select name="role" defaultValue={editingEmployee?.role || 'waiter'} className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-100 rounded-xl focus:ring-2 focus:ring-neutral-900 outline-none font-bold">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Rol</label>
+                          <select name="role" defaultValue={editingEmployee?.role || 'waiter'} className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl focus:ring-2 focus:ring-neutral-900 outline-none font-black appearance-none cursor-pointer">
                             <option value="waiter">Mesero</option>
-                            <option value="chef">Cocinero / Chef</option>
+                            <option value="chef">Cocinero</option>
                           </select>
                         </div>
                       </div>
-                      <div className="flex gap-3 pt-6">
-                        <button type="button" onClick={() => { setIsAddingEmployee(false); setEditingEmployee(null); }} className="flex-1 py-3 font-bold text-neutral-400 hover:text-neutral-600 transition-colors">Cancelar</button>
-                        <button type="submit" className="flex-1 py-3 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-black transition-shadow shadow-lg">Guardar Registro</button>
+                      <div className="flex gap-4 pt-4">
+                        <button type="button" onClick={() => { setIsAddingEmployee(false); setEditingEmployee(null); }} className="flex-1 py-4 font-black text-neutral-400 hover:text-neutral-600 uppercase tracking-widest text-sm">Cancelar</button>
+                        <button type="submit" className="flex-1 py-4 bg-neutral-900 text-white rounded-[1.25rem] font-black hover:bg-black transition-all shadow-xl uppercase tracking-widest text-sm">Guardar</button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+
+        {activeTab === 'tables' && (
+          <motion.div 
+            key="tables"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="text-xl font-black">Control de Mesas</h3>
+              <button 
+                onClick={() => setIsAddingTable(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-2xl font-black text-sm hover:bg-black transition-all shadow-xl active:scale-95"
+              >
+                <Plus size={18} /> AÑADIR MESA
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {tables.map(table => (
+                <div key={table.id} className="bg-white p-6 rounded-[2rem] border border-neutral-100 shadow-sm relative group text-center hover:border-neutral-300 transition-all">
+                  <div className="flex justify-center mb-4">
+                    <div className="w-12 h-12 bg-neutral-100 rounded-xl flex items-center justify-center text-neutral-400 group-hover:bg-neutral-900 group-hover:text-white transition-all">
+                      <Square size={24} />
+                    </div>
+                  </div>
+                  <h4 className="font-black text-neutral-900 text-lg">Mesa {table.number}</h4>
+                  <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-1">{table.capacity} Personas</p>
+                  
+                  <div className="mt-4 pt-4 border-t border-neutral-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => deleteTable(table.id)}
+                      className="text-red-500 text-[10px] font-black uppercase tracking-widest hover:underline"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <AnimatePresence>
+              {isAddingTable && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <motion.div 
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                    onClick={() => setIsAddingTable(false)}
+                  />
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                    className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl"
+                  >
+                    <h3 className="text-2xl font-black mb-8">Nueva Mesa</h3>
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      const formData = new FormData(e.currentTarget);
+                      const num = parseInt(formData.get('number') as string);
+                      const cap = parseInt(formData.get('capacity') as string);
+                      if (num && cap) addTable(num, cap);
+                      setIsAddingTable(false);
+                    }} className="space-y-5">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Número de Mesa</label>
+                        <input name="number" type="number" required autoFocus className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Capacidad (Personas)</label>
+                        <input name="capacity" type="number" defaultValue="4" required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold" />
+                      </div>
+                      <div className="flex gap-4 pt-4">
+                        <button type="button" onClick={() => setIsAddingTable(false)} className="flex-1 font-black text-neutral-400 hover:text-neutral-600 uppercase tracking-widest text-sm">Cerrar</button>
+                        <button type="submit" className="flex-1 py-4 bg-neutral-900 text-white rounded-[1.25rem] font-black hover:bg-black uppercase tracking-widest text-sm shadow-xl">Crear Mesa</button>
                       </div>
                     </form>
                   </motion.div>

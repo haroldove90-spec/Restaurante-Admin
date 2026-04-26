@@ -35,6 +35,8 @@ interface RestaurantContextType extends RestaurantState {
   addEmployee: (employee: Omit<Employee, 'id'>) => void;
   updateEmployee: (id: string, employee: Partial<Employee>) => void;
   deleteEmployee: (id: string) => void;
+  addTable: (num: number, cap: number) => void;
+  deleteTable: (id: string) => void;
   uploadImage: (file: File) => Promise<string | null>;
   addNotification: (message: string, type?: Notification['type']) => void;
   removeNotification: (id: string) => void;
@@ -375,6 +377,25 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     else addNotification("Categoría eliminada", "success");
   };
 
+  const addTable = async (number: number, capacity: number) => {
+    const id = `t${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const { error } = await supabase.from('tables').insert({ 
+      id, 
+      number, 
+      capacity, 
+      status: 'available',
+      current_diners: 0
+    });
+    if (error) addNotification(`Error al añadir mesa: ${error.message}`, "warning");
+    else addNotification(`Mesa ${number} añadida`, "success");
+  };
+
+  const deleteTable = async (id: string) => {
+    const { error } = await supabase.from('tables').delete().eq('id', id);
+    if (error) addNotification(`Error al eliminar mesa: ${error.message}`, "warning");
+    else addNotification("Mesa eliminada", "success");
+  };
+
   const uploadImage = async (file: File) => {
     try {
       const fileExt = file.name.split('.').pop();
@@ -433,6 +454,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       addEmployee,
       updateEmployee,
       deleteEmployee,
+      addTable,
+      deleteTable,
       uploadImage,
       addNotification,
       removeNotification

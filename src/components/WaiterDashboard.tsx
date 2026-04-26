@@ -246,24 +246,39 @@ export const WaiterDashboard: React.FC = () => {
                       table.status === 'occupied' ? 'OCUPADA' : 'SUCIA'}
                     </span>
                     
-                    {table.status === 'occupied' && (
+                    {table.status !== 'available' && (
                       <div className="flex flex-col items-center gap-1 mt-2">
-                        <span className="text-[9px] font-black">{table.currentDiners} COMENSALES</span>
-                        <div className="flex gap-1">
-                          {(() => {
-                            const order = orders.find(o => o.tableId === table.id && o.status === 'active');
-                            const allReady = order?.items.every(i => i.status === 'ready');
-                            const someCooking = order?.items.some(i => i.status === 'cooking');
-                            
-                            return (
-                              <>
-                                <div className={cn("w-3 h-3 rounded-full border border-neutral-200", order ? "bg-orange-500" : "bg-neutral-50")}></div>
-                                <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", someCooking ? "bg-amber-400" : "bg-neutral-50")}></div>
-                                <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", allReady ? "bg-emerald-500" : "bg-neutral-50")}></div>
-                              </>
-                            );
-                          })()}
-                        </div>
+                        {table.status === 'occupied' && (
+                          <>
+                            <span className="text-[9px] font-black">{table.currentDiners} COMENSALES</span>
+                            <div className="flex gap-1">
+                              {(() => {
+                                const order = orders.find(o => o.tableId === table.id && o.status === 'active');
+                                const allReady = order?.items.every(i => i.status === 'ready');
+                                const someCooking = order?.items.some(i => i.status === 'cooking');
+                                
+                                return (
+                                  <>
+                                    <div className={cn("w-3 h-3 rounded-full border border-neutral-200", order ? "bg-orange-500" : "bg-neutral-50")}></div>
+                                    <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", someCooking ? "bg-amber-400" : "bg-neutral-50")}></div>
+                                    <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", allReady ? "bg-emerald-500" : "bg-neutral-50")}></div>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </>
+                        )}
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`¿Deseas resetear la mesa ${table.number} a disponible?`)) {
+                              updateTableStatus(table.id, 'available');
+                            }
+                          }}
+                          className="mt-1 text-[8px] font-black underline uppercase text-neutral-400 hover:text-neutral-900"
+                        >
+                          Reiniciar Mesa
+                        </button>
                       </div>
                     )}
 
