@@ -7,6 +7,17 @@
   --font-serif: "Playfair Display", serif;
 }
 
+@keyframes blink-ready {
+  0%, 100% { background-color: white; }
+  50% { background-color: rgba(16, 185, 129, 0.2); transform: scale(1.02); box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
+}
+
+.animate-blink-ready {
+  animation: blink-ready 1.5s infinite ease-in-out;
+  border-color: #10b981 !important;
+  border-width: 2px !important;
+}
+
 @layer base {
   body {
     @apply antialiased;

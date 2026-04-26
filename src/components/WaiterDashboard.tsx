@@ -326,17 +326,28 @@ export const WaiterDashboard: React.FC = () => {
             </motion.div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                {filteredTables.map(table => (
-                  <div
-                    key={table.id}
-                    onClick={() => handleTableSelect(table)}
-                    className={cn(
-                      "relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all p-4 cursor-pointer",
-                      table.status === 'available' ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:border-emerald-300" :
-                      table.status === 'occupied' ? "border-blue-100 bg-blue-50 text-blue-700 hover:border-blue-300 shadow-inner" :
-                      "border-orange-100 bg-orange-50 text-orange-700 hover:border-orange-300"
-                    )}
-                  >
+                {filteredTables.map(table => {
+                  const activeOrder = orders.find(o => o.tableId === table.id && o.status === 'active');
+                  const hasReadyItems = activeOrder?.items.some(item => item.status === 'ready');
+                  
+                  return (
+                    <div
+                      key={table.id}
+                      onClick={() => handleTableSelect(table)}
+                      className={cn(
+                        "relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all p-4 cursor-pointer",
+                        hasReadyItems ? "animate-blink-ready" : 
+                        table.status === 'available' ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:border-emerald-300" :
+                        table.status === 'occupied' ? "border-blue-100 bg-blue-50 text-blue-700 hover:border-blue-300 shadow-inner" :
+                        "border-orange-100 bg-orange-50 text-orange-700 hover:border-orange-300"
+                      )}
+                    >
+                      {hasReadyItems && (
+                        <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
+                        </div>
+                      )}
                     <span className="text-xs font-bold uppercase opacity-50">Mesa</span>
                     <span className="text-3xl font-black">{table.number}</span>
                     
@@ -409,7 +420,7 @@ export const WaiterDashboard: React.FC = () => {
                       <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                     )}
                   </div>
-                ))}
+                )})}
               </div>
             )}
           </motion.div>

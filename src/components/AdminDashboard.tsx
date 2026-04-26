@@ -257,7 +257,7 @@ export const AdminDashboard: React.FC = () => {
                 onClick={() => setIsAddingItem(true)}
                 className="flex items-center gap-2 px-6 py-3 bg-neutral-900 text-white rounded-2xl font-black text-sm hover:bg-black transition-all shadow-xl active:scale-95"
               >
-                <Plus size={18} /> NUEVO ITEM
+                <Plus size={18} /> NUEVO PLATILLO
               </button>
             </div>
 
