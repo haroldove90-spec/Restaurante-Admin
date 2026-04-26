@@ -30,8 +30,9 @@ export const KitchenDashboard: React.FC = () => {
   const completedOrders = orders.filter(o => o.status === 'completed');
 
   // Pending items for current orders
-  const pendingOrders = activeOrders.filter(o => o.items.some(i => i.status !== 'ready'))
-    .sort((a, b) => Number(a.createdAt) - Number(b.createdAt));
+  const pendingOrders = activeOrders.filter(o => 
+    o.items.some(i => i.status === 'pending' || i.status === 'cooking')
+  ).sort((a, b) => Number(a.createdAt) - Number(b.createdAt));
 
   // Prepared items: Flat list of items marked as 'ready' from both active and completed orders
   const allReadyItems = [...activeOrders, ...completedOrders].flatMap(order => 

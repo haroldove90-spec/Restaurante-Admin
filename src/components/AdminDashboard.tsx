@@ -316,6 +316,65 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                 );
               })}
+
+              {/* Items without a valid category match */}
+              {(() => {
+                const uncategorizedItems = menu.filter(item => 
+                  !categories.some(cat => cat.name.trim().toUpperCase() === item.category.trim().toUpperCase())
+                );
+                if (uncategorizedItems.length === 0) return null;
+
+                return (
+                  <div className="space-y-6">
+                    <div className="flex items-center gap-4">
+                      <h4 className="text-sm font-black uppercase tracking-[0.2em] text-neutral-400">Sin Categoría / Otros</h4>
+                      <div className="h-px bg-neutral-100 flex-1" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {uncategorizedItems.map(item => (
+                        <div key={item.id} className="bg-white p-5 rounded-3xl border border-neutral-100 shadow-sm group hover:border-neutral-300 transition-all">
+                          <div className="flex gap-4">
+                            <div className="w-24 h-24 bg-neutral-100 rounded-2xl flex items-center justify-center flex-shrink-0 overflow-hidden border border-neutral-50 shadow-inner">
+                              {item.imageUrl ? (
+                                <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              ) : (
+                                <ImageIcon size={24} className="text-neutral-300" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0 flex flex-col justify-between">
+                              <div>
+                                <div className="flex justify-between items-start gap-2">
+                                  <h4 className="font-black text-neutral-900 truncate leading-tight">{item.name}</h4>
+                                  {!item.available && <span className="bg-red-100 text-red-600 text-[8px] font-black px-1.5 py-0.5 rounded uppercase tracking-widest flex-shrink-0">Agotado</span>}
+                                </div>
+                                <p className="text-[10px] text-neutral-500 line-clamp-2 mt-1 font-medium">{item.description}</p>
+                              </div>
+                              <div className="flex justify-between items-center mt-3">
+                                <span className="font-black text-lg text-neutral-900">{formatCurrency(item.price)}</span>
+                                <span className="text-[10px] text-neutral-400 italic">[{item.category}]</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 mt-5 pt-5 border-t border-neutral-50">
+                            <button 
+                              onClick={() => setEditingItem(item)}
+                              className="flex-1 flex items-center justify-center gap-2 py-2.5 text-[10px] font-black uppercase tracking-widest bg-neutral-50 text-neutral-600 rounded-xl hover:bg-neutral-900 hover:text-white transition-all"
+                            >
+                              <Edit2 size={12} /> Editar
+                            </button>
+                            <button 
+                              onClick={() => deleteMenuItem(item.id)}
+                              className="flex items-center justify-center px-4 py-2.5 text-red-500 bg-red-50 rounded-xl hover:bg-red-500 hover:text-white transition-all"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               
               {menu.length === 0 && (
                 <div className="py-20 text-center bg-neutral-50 rounded-[3rem] border-2 border-dashed border-neutral-200">
