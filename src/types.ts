@@ -5,6 +5,17 @@
 
 export type Role = 'admin' | 'waiter' | 'kitchen' | 'customer';
 
+export type EmployeeRole = 'waiter' | 'chef';
+
+export interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  role: EmployeeRole;
+  phone?: string;
+  active: boolean;
+}
+
 export type TableStatus = 'available' | 'occupied' | 'dirty' | 'reserved';
 
 export interface Table {
@@ -31,6 +42,7 @@ export type OrderStatus = 'active' | 'completed' | 'cancelled';
 export interface Order {
   id: string;
   tableId: string;
+  waiterId?: string; // New field to track who took the order
   items: OrderItem[];
   totalPrice: number;
   status: OrderStatus;

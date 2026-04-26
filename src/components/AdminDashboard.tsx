@@ -12,43 +12,54 @@ import {
 import { 
   TrendingUp, Users, DollarSign, ShoppingBag, 
   Plus, Edit2, Trash2, FileText, Download, 
-  Image as ImageIcon, LayoutDashboard, UtensilsCrossed, Wallet
+  Image as ImageIcon, LayoutDashboard, UtensilsCrossed, Wallet,
+  UserPlus, ShieldCheck, Mail, Phone
 } from 'lucide-react';
 import { formatCurrency, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { MenuItem, Category } from '../types';
+import { MenuItem, Category, Employee, EmployeeRole } from '../types';
 
-type AdminTab = 'dashboard' | 'menu' | 'sales';
+type AdminTab = 'dashboard' | 'menu' | 'sales' | 'employees';
 
 export const AdminDashboard: React.FC = () => {
-  const { orders, menu, addMenuItem, updateMenuItem, deleteMenuItem } = useRestaurant();
+  const { orders, menu, addMenuItem, updateMenuItem, deleteMenuItem, employees, addEmployee, updateEmployee, deleteEmployee } = useRestaurant();
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [isAddingEmployee, setIsAddingEmployee] = useState(false);
 
   const completedOrders = orders.filter(o => o.status === 'completed');
   const totalRevenue = completedOrders.reduce((sum, o) => sum + o.totalPrice, 0);
 
+  const waiterSales = completedOrders.reduce((acc, order) => {
+    const waiterId = order.waiterId || 'No asignado';
+    acc[waiterId] = (acc[waiterId] || 0) + order.totalPrice;
+    return acc;
+  }, {} as Record<string, number>);
+
+  const salesByWaiterData = Object.entries(waiterSales).map(([name, sales]) => ({ name, sales }));
+
   const exportSalesToPDF = () => {
     const doc = new jsPDF();
-    doc.text('Reporte de Ventas - RestoFlow', 20, 20);
+    doc.text('Reporte de Ventas General - RestoFlow', 20, 20);
     
     const tableData = completedOrders.map(order => [
       order.id.slice(-6),
+      order.waiterId || '---',
       new Date(order.createdAt).toLocaleString(),
-      order.items.map(i => `${i.quantity}x ${i.name}`).join(', '),
       formatCurrency(order.totalPrice)
     ]);
 
     (doc as any).autoTable({
       startY: 30,
-      head: [['ID Orden', 'Fecha', 'Items', 'Total']],
+      head: [['ID Orden', 'Mesero', 'Fecha', 'Total']],
       body: tableData,
     });
 
-    doc.save(`ventas_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`ventas_restoflow_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   return (
@@ -77,6 +88,12 @@ export const AdminDashboard: React.FC = () => {
             onClick={() => setActiveTab('sales')} 
             icon={<Wallet size={16} />}
             label="Ingresos" 
+          />
+          <TabButton 
+            active={activeTab === 'employees'} 
+            onClick={() => setActiveTab('employees')} 
+            icon={<Users size={16} />}
+            label="Staff" 
           />
         </div>
       </header>
@@ -130,6 +147,18 @@ export const AdminDashboard: React.FC = () => {
                     <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                     <Line type="monotone" dataKey="sales" stroke="#10B981" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                   </LineChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+
+              <ChartContainer title="Ventas por Mesero">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={salesByWaiterData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
+                    <Bar dataKey="sales" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
                 </ResponsiveContainer>
               </ChartContainer>
 
@@ -319,6 +348,7 @@ export const AdminDashboard: React.FC = () => {
                   <thead>
                     <tr className="bg-neutral-50 border-b border-neutral-100">
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">ID Orden</th>
+                      <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Mesero</th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Fecha y Hora</th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Items</th>
                       <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400 text-right">Total</th>
@@ -330,6 +360,11 @@ export const AdminDashboard: React.FC = () => {
                       completedOrders.map(order => (
                         <tr key={order.id} className="hover:bg-neutral-50 transition-colors">
                           <td className="px-6 py-4 font-mono text-xs font-bold text-blue-600">#{order.id.slice(-6)}</td>
+                          <td className="px-6 py-4">
+                            <span className="text-xs font-bold px-2 py-1 bg-blue-50 text-blue-600 rounded-lg">
+                              {order.waiterId || 'No asignado'}
+                            </span>
+                          </td>
                           <td className="px-6 py-4 text-sm text-neutral-600">{new Date(order.createdAt).toLocaleString()}</td>
                           <td className="px-6 py-4">
                             <div className="flex flex-wrap gap-1">
@@ -355,6 +390,148 @@ export const AdminDashboard: React.FC = () => {
                 </table>
               </div>
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'employees' && (
+          <motion.div 
+            key="employees"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="space-y-6"
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold">Gestión de Personal</h3>
+              <button 
+                onClick={() => setIsAddingEmployee(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-xl font-bold text-sm hover:bg-black transition-all shadow-lg"
+              >
+                <UserPlus size={18} /> Nuevo Empleado
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {employees.map(emp => (
+                <div key={emp.id} className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm relative group overflow-hidden">
+                  <div className={cn(
+                    "absolute top-0 right-0 w-24 h-24 rounded-full -mr-12 -mt-12 opacity-10",
+                    emp.role === 'chef' ? "bg-orange-600" : "bg-blue-600"
+                  )} />
+                  <div className="flex items-center gap-4 mb-6 relative">
+                    <div className={cn(
+                      "w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-lg",
+                      emp.role === 'chef' ? "bg-orange-600" : "bg-blue-600"
+                    )}>
+                      {emp.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h4 className="font-black text-neutral-900">{emp.name}</h4>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">{emp.role === 'chef' ? 'Cocinero' : 'Mesero'}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mb-6">
+                    <div className="flex items-center gap-2 text-xs text-neutral-500">
+                      <Mail size={14} className="opacity-40" /> {emp.email}
+                    </div>
+                    {emp.phone && (
+                      <div className="flex items-center gap-2 text-xs text-neutral-500">
+                        <Phone size={14} className="opacity-40" /> {emp.phone}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 pt-4 border-t border-neutral-50">
+                    <button 
+                      onClick={() => setEditingEmployee(emp)}
+                      className="flex-1 py-2 text-xs font-bold bg-neutral-50 text-neutral-600 rounded-xl hover:bg-neutral-100"
+                    >
+                      Editar
+                    </button>
+                    <button 
+                      onClick={() => deleteEmployee(emp.id)}
+                      className="px-3 py-2 text-red-500 bg-red-50 rounded-xl hover:bg-red-100"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {employees.length === 0 && (
+                <div className="col-span-full py-20 text-center bg-neutral-50 rounded-3xl border-2 border-dashed border-neutral-200">
+                  <p className="text-neutral-400 font-medium">No has registrado empleados aún.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Employee Modal */}
+            <AnimatePresence>
+              {(isAddingEmployee || editingEmployee) && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                    onClick={() => { setIsAddingEmployee(false); setEditingEmployee(null); }}
+                  />
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-6"
+                  >
+                    <h3 className="text-xl font-black mb-6">{isAddingEmployee ? 'Nuevo Colaborador' : 'Editar Personal'}</h3>
+                    <form 
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.currentTarget);
+                        const empData = {
+                          name: formData.get('name') as string,
+                          email: formData.get('email') as string,
+                          phone: formData.get('phone') as string,
+                          role: formData.get('role') as EmployeeRole,
+                          active: true
+                        };
+                        if (isAddingEmployee) addEmployee(empData);
+                        else if (editingEmployee) updateEmployee(editingEmployee.id, empData);
+                        setIsAddingEmployee(false);
+                        setEditingEmployee(null);
+                      }}
+                      className="space-y-4"
+                    >
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Nombre Completo</label>
+                        <input name="name" defaultValue={editingEmployee?.name} required className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-100 rounded-xl focus:ring-2 focus:ring-neutral-900 outline-none" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Email</label>
+                        <input name="email" type="email" defaultValue={editingEmployee?.email} required className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-100 rounded-xl focus:ring-2 focus:ring-neutral-900 outline-none" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Celular</label>
+                          <input name="phone" defaultValue={editingEmployee?.phone} className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-100 rounded-xl focus:ring-2 focus:ring-neutral-900 outline-none" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Rol</label>
+                          <select name="role" defaultValue={editingEmployee?.role || 'waiter'} className="w-full px-4 py-2.5 bg-neutral-50 border border-neutral-100 rounded-xl focus:ring-2 focus:ring-neutral-900 outline-none font-bold">
+                            <option value="waiter">Mesero</option>
+                            <option value="chef">Cocinero / Chef</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex gap-3 pt-6">
+                        <button type="button" onClick={() => { setIsAddingEmployee(false); setEditingEmployee(null); }} className="flex-1 py-3 font-bold text-neutral-400 hover:text-neutral-600 transition-colors">Cancelar</button>
+                        <button type="submit" className="flex-1 py-3 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-black transition-shadow shadow-lg">Guardar Registro</button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>

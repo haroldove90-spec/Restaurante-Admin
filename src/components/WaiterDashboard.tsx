@@ -5,19 +5,29 @@
 
 import React, { useState } from 'react';
 import { useRestaurant } from '../context/RestaurantContext';
-import { Table, MenuItem, OrderItem } from '../types';
-import { Plus, Minus, Search, Trash2, ArrowLeft, CheckCircle, Utensils } from 'lucide-react';
+import { Table, MenuItem, OrderItem, Category } from '../types';
+import { Plus, Minus, Search, Trash2, ArrowLeft, CheckCircle, Utensils, Wallet, Download } from 'lucide-react';
 import { cn, formatCurrency } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
+
 export const WaiterDashboard: React.FC = () => {
-  const { tables, menu, orders, addOrder, updateTableStatus, completeOrder } = useRestaurant();
+  const { tables, menu, orders, addOrder, updateTableStatus, completeOrder, employees } = useRestaurant();
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState<Category | 'todos'>('todos');
+  const [showSales, setShowSales] = useState(false);
+  const [selectedWaiterId, setSelectedWaiterId] = useState<string>('');
 
   const activeOrderForTable = orders.find(o => o.tableId === selectedTable?.id && o.status === 'active');
+
+  const waiters = employees.filter(e => e.role === 'waiter');
+  
+  // Effective waiter name for current session
+  const currentWaiter = waiters.find(w => w.id === selectedWaiterId)?.name || "Mesero Demo";
 
   const categories: { id: Category | 'todos', label: string }[] = [
     { id: 'todos', label: 'Todo' },
@@ -62,12 +72,37 @@ export const WaiterDashboard: React.FC = () => {
     
     addOrder({
       tableId: selectedTable.id,
+      waiterId: currentWaiter, // Use selected waiter
       items: cart,
       totalPrice: cart.reduce((sum, item) => sum + (item.price * item.quantity), 0),
       status: 'active',
     });
     setCart([]);
     setSelectedTable(null);
+  };
+
+  const myCompletedOrders = orders.filter(o => o.status === 'completed' && o.waiterId === currentWaiter);
+  const myTotalSales = myCompletedOrders.reduce((sum, o) => sum + o.totalPrice, 0);
+
+  const exportMySalesToPDF = () => {
+    const doc = new jsPDF();
+    doc.text(`Reporte de Ventas - ${currentWaiter}`, 20, 20);
+    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 20, 30);
+    
+    const tableData = myCompletedOrders.map(order => [
+      order.id.slice(-6),
+      new Date(order.createdAt).toLocaleTimeString(),
+      formatCurrency(order.totalPrice)
+    ]);
+
+    (doc as any).autoTable({
+      startY: 40,
+      head: [['ID Orden', 'Hora', 'Total']],
+      body: tableData,
+    });
+
+    doc.text(`Ventas Totales: ${formatCurrency(myTotalSales)}`, 20, (doc as any).lastAutoTable.finalY + 10);
+    doc.save(`mis_ventas_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const handleCompleteOrder = () => {
@@ -95,39 +130,125 @@ export const WaiterDashboard: React.FC = () => {
             exit={{ opacity: 0 }}
             className="space-y-6"
           >
-            <header>
-              <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Salón de Mesas</h1>
-              <p className="text-neutral-500 text-sm">Selecciona una mesa para gestionar su orden.</p>
+            <header className="flex justify-between items-center">
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Salón de Mesas</h1>
+                <p className="text-neutral-500 text-sm">Selecciona una mesa para gestionar su orden.</p>
+              </div>
+              <div className="flex items-center gap-3">
+                {waiters.length > 0 && !showSales && (
+                  <select 
+                    value={selectedWaiterId} 
+                    onChange={(e) => setSelectedWaiterId(e.target.value)}
+                    className="bg-neutral-50 border border-neutral-100 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-neutral-900"
+                  >
+                    <option value="">Seleccionar Mesero</option>
+                    {waiters.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                )}
+                <button 
+                  onClick={() => setShowSales(!showSales)}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-neutral-200 rounded-xl font-bold text-xs hover:border-neutral-900 transition-all"
+                >
+                  <Wallet size={16} /> {showSales ? 'MESAS' : 'MIS VENTAS'}
+                </button>
+              </div>
             </header>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {tables.map(table => (
-                <button
-                  key={table.id}
-                  onClick={() => setSelectedTable(table)}
-                  className={cn(
-                    "relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all p-4",
-                    table.status === 'available' ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:border-emerald-300" :
-                    table.status === 'occupied' ? "border-blue-100 bg-blue-50 text-blue-700 hover:border-blue-300 shadow-inner" :
-                    "border-orange-100 bg-orange-50 text-orange-700 hover:border-orange-300"
-                  )}
-                >
-                  <span className="text-xs font-bold uppercase opacity-50">Mesa</span>
-                  <span className="text-3xl font-black">{table.number}</span>
-                  <span className={cn(
-                    "text-[10px] font-bold px-2 py-0.5 rounded-full",
-                    table.status === 'available' ? "bg-emerald-200" :
-                    table.status === 'occupied' ? "bg-blue-200" : "bg-orange-200"
-                  )}>
-                    {table.status === 'available' ? 'LIBRE' : 
-                     table.status === 'occupied' ? 'OCUPADA' : 'SUCIA'}
-                  </span>
-                  {table.status === 'occupied' && (
-                    <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
-                  )}
-                </button>
-              ))}
-            </div>
+            {showSales ? (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-emerald-600 text-white p-6 rounded-3xl shadow-lg">
+                    <p className="text-xs font-bold uppercase tracking-widest opacity-60">Mis Ventas de Hoy</p>
+                    <h2 className="text-4xl font-black mt-2">{formatCurrency(myTotalSales)}</h2>
+                    <button 
+                      onClick={exportMySalesToPDF}
+                      className="mt-6 flex items-center justify-center gap-2 w-full py-2 bg-white/20 backdrop-blur-md rounded-xl text-sm font-bold hover:bg-white/30 transition-all"
+                    >
+                      <Download size={16} /> EXPORTAR PDF
+                    </button>
+                  </div>
+                  <div className="bg-white p-6 rounded-3xl border border-neutral-100 shadow-sm flex flex-col justify-center">
+                    <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Órdenes Atendidas</p>
+                    <h2 className="text-4xl font-black mt-2 text-neutral-900">{myCompletedOrders.length}</h2>
+                    <p className="text-xs text-neutral-500 mt-2">Mesero: {currentWaiter}</p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-3xl border border-neutral-100 overflow-hidden">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead>
+                      <tr className="bg-neutral-50 border-b border-neutral-100">
+                        <th className="px-6 py-4 font-bold text-neutral-400">ID</th>
+                        <th className="px-6 py-4 font-bold text-neutral-400">HORA</th>
+                        <th className="px-6 py-4 font-bold text-neutral-400 text-right">TOTAL</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-50">
+                      {myCompletedOrders.map(order => (
+                        <tr key={order.id} className="hover:bg-neutral-50">
+                          <td className="px-6 py-4 font-bold text-blue-600">#{order.id.slice(-6)}</td>
+                          <td className="px-6 py-4 text-neutral-500">{new Date(order.createdAt).toLocaleTimeString()}</td>
+                          <td className="px-6 py-4 text-right font-black">{formatCurrency(order.totalPrice)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {tables.map(table => (
+                  <button
+                    key={table.id}
+                    onClick={() => setSelectedTable(table)}
+                    className={cn(
+                      "relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all p-4",
+                      table.status === 'available' ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:border-emerald-300" :
+                      table.status === 'occupied' ? "border-blue-100 bg-blue-50 text-blue-700 hover:border-blue-300 shadow-inner" :
+                      "border-orange-100 bg-orange-50 text-orange-700 hover:border-orange-300"
+                    )}
+                  >
+                    <span className="text-xs font-bold uppercase opacity-50">Mesa</span>
+                    <span className="text-3xl font-black">{table.number}</span>
+                    <span className={cn(
+                      "text-[10px] font-bold px-2 py-0.5 rounded-full",
+                      table.status === 'available' ? "bg-emerald-200" :
+                      table.status === 'occupied' ? "bg-blue-200" : "bg-orange-200"
+                    )}>
+                      {table.status === 'available' ? 'LIBRE' : 
+                      table.status === 'occupied' ? 'OCUPADA' : 'SUCIA'}
+                    </span>
+                    
+                    {table.status === 'occupied' && (
+                      <div className="flex gap-1 mt-2">
+                        {(() => {
+                          const order = orders.find(o => o.tableId === table.id && o.status === 'active');
+                          const allReady = order?.items.every(i => i.status === 'ready');
+                          const someCooking = order?.items.some(i => i.status === 'cooking');
+                          
+                          return (
+                            <>
+                              <div className={cn("w-3 h-3 rounded-full border border-neutral-200", order ? "bg-orange-500" : "bg-neutral-50")}></div>
+                              <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", someCooking ? "bg-amber-400" : "bg-neutral-50")}></div>
+                              <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", allReady ? "bg-emerald-500" : "bg-neutral-50")}></div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {table.status === 'occupied' && (
+                      <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
         ) : (
           <motion.div 

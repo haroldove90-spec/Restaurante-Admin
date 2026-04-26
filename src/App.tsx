@@ -14,6 +14,7 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { WaiterDashboard } from './components/WaiterDashboard';
 import { KitchenDashboard } from './components/KitchenDashboard';
 import { CustomerDashboard } from './components/CustomerDashboard';
+import { NotificationToast } from './components/NotificationToast';
 import { Layout } from 'lucide-react';
 
 function DashboardSwitch() {
@@ -48,6 +49,8 @@ function MainLayout() {
           <span className="text-emerald-500">Sistema Activo</span>
         </div>
       </nav>
+
+      <NotificationToast />
 
       {/* Content Area */}
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">

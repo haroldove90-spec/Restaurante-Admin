@@ -96,23 +96,27 @@ export const KitchenDashboard: React.FC = () => {
                         <div className="mt-3 flex gap-2">
                           {item.status === 'pending' && (
                             <button 
-                              onClick={() => updateOrderItemStatus(order.id, item.id, 'cooking')}
-                              className="flex items-center gap-1.5 px-3 py-1 bg-orange-600 text-white text-[10px] font-bold rounded-lg hover:bg-orange-700 transition-colors uppercase"
+                              onClick={() => {
+                                updateOrderItemStatus(order.id, item.id, 'cooking');
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-neutral-900 text-white text-[10px] font-bold rounded-xl hover:bg-black transition-colors uppercase w-full justify-center"
                             >
-                              <PlayCircle size={14} /> EMPEZAR
+                              <PlayCircle size={14} /> RECIBIR COMANDA
                             </button>
                           )}
                           {item.status === 'cooking' && (
                             <button 
-                              onClick={() => updateOrderItemStatus(order.id, item.id, 'ready')}
-                              className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition-colors uppercase"
+                              onClick={() => {
+                                updateOrderItemStatus(order.id, item.id, 'ready');
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white text-[10px] font-bold rounded-xl hover:bg-emerald-700 transition-colors uppercase w-full justify-center shadow-lg shadow-emerald-100"
                             >
-                              <CheckCircle2 size={14} /> LISTO
+                              <CheckCircle2 size={16} /> ¡PEDIDO LISTO!
                             </button>
                           )}
                           {item.status === 'ready' && (
-                            <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 uppercase">
-                              <CheckCircle2 size={14} /> PREPARADO
+                            <span className="flex items-center justify-center gap-1.5 w-full py-2 bg-emerald-50 text-[10px] font-black text-emerald-600 uppercase rounded-xl border border-emerald-100">
+                              <CheckCircle2 size={14} /> LISTO PARA SALÓN
                             </span>
                           )}
                         </div>
