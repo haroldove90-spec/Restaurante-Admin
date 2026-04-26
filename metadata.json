@@ -1,0 +1,6 @@
+{
+  "name": "RestoFlow Manager",
+  "description": "A multi-role restaurant management platform with real-time order tracking, kitchen displays, and sales analytics for Admin, Waiters, Kitchen, and Customers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
