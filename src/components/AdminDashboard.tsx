@@ -67,6 +67,8 @@ export const AdminDashboard: React.FC = () => {
   const [isAddingEmployee, setIsAddingEmployee] = useState(false);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [isAddingTable, setIsAddingTable] = useState(false);
+  const [tableNumInput, setTableNumInput] = useState('');
+  const [tableCapInput, setTableCapInput] = useState('4');
 
   const completedOrders = orders.filter(o => o.status === 'completed');
   const totalRevenue = completedOrders.reduce((sum, o) => sum + o.totalPrice, 0);
@@ -906,13 +908,8 @@ export const AdminDashboard: React.FC = () => {
                     <h3 className="text-2xl font-black mb-8 text-neutral-900 leading-tight">NUEVA MESA</h3>
                     <form onSubmit={(e) => {
                       e.preventDefault();
-                      const formData = new FormData(e.currentTarget);
-                      const numStr = (formData.get('number') as string).trim();
-                      const capStr = (formData.get('capacity') as string).trim();
-                      
-                      // Flexible parsing: Try to find numbers in the string
-                      const numMatch = numStr.match(/\d+/);
-                      const capMatch = capStr.match(/\d+/);
+                      const numMatch = tableNumInput.match(/\d+/);
+                      const capMatch = tableCapInput.match(/\d+/);
                       
                       const num = numMatch ? parseInt(numMatch[0]) : NaN;
                       const cap = capMatch ? parseInt(capMatch[0]) : NaN;
@@ -920,30 +917,36 @@ export const AdminDashboard: React.FC = () => {
                       if (!isNaN(num) && num > 0 && !isNaN(cap) && cap > 0) {
                         addTable(num, cap);
                         setIsAddingTable(false);
+                        setTableNumInput('');
+                        setTableCapInput('4');
                       } else {
-                        alert('Por favor ingresa un número de mesa válido (solo números) y una capacidad válida.');
+                        alert('Por favor ingresa un número de mesa válido y una capacidad válida.');
                       }
                     }} className="space-y-6">
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 focus-within:z-10">
                         <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Número de Mesa</label>
                         <input 
+                          id="table-number-input"
                           name="number" 
                           type="text" 
-                          placeholder="Ej: 7" 
+                          placeholder="Escribe el número aquí" 
+                          value={tableNumInput}
+                          onChange={(e) => setTableNumInput(e.target.value)}
                           required 
-                          autoFocus 
-                          className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-black text-neutral-900 text-lg transition-all" 
+                          className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-black text-neutral-900 text-lg transition-all relative z-10" 
                         />
                         <p className="text-[9px] text-neutral-400 font-bold italic">Ingresa solo el número de la mesa</p>
                       </div>
-                      <div className="space-y-1.5">
+                      <div className="space-y-1.5 focus-within:z-10">
                          <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Capacidad (Personas)</label>
                         <input 
+                          id="table-capacity-input"
                           name="capacity" 
                           type="text" 
-                          defaultValue="4" 
+                          value={tableCapInput}
+                          onChange={(e) => setTableCapInput(e.target.value)}
                           required 
-                          className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-black text-neutral-900 text-lg transition-all" 
+                          className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-black text-neutral-900 text-lg transition-all relative z-10" 
                         />
                       </div>
                       <div className="flex flex-col sm:flex-row gap-3 pt-4">
