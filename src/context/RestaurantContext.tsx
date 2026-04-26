@@ -415,10 +415,26 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const addCategory = async (name: string) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    // Local check for duplicates to avoid DB error
+    if (categories.some(c => c.name.toLowerCase() === trimmedName.toLowerCase())) {
+      addNotification(`La categoría "${trimmedName}" ya existe`, "warning");
+      return;
+    }
+
     const id = `c${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const { error } = await supabase.from('categories').insert({ id, name });
-    if (error) addNotification(`Error al guardar categoría: ${error.message}`, "warning");
-    else addNotification("Categoría añadida", "success");
+    const { error } = await supabase.from('categories').insert({ id, name: trimmedName.toUpperCase() });
+    if (error) {
+      if (error.code === '23505') { // Postgres duplicate key error code
+        addNotification(`Error: La categoría ya está registrada en la base de datos`, "warning");
+      } else {
+        addNotification(`Error al guardar categoría: ${error.message}`, "warning");
+      }
+    } else {
+      addNotification("Categoría añadida", "success");
+    }
   };
 
   const deleteCategory = async (id: string) => {

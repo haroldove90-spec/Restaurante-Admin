@@ -18,7 +18,7 @@ import {
 import { formatCurrency, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { MenuItem, Category, Employee, EmployeeRole } from '../types';
 
 type AdminTab = 'dashboard' | 'menu' | 'categories' | 'sales' | 'employees' | 'tables';
@@ -84,30 +84,45 @@ export const AdminDashboard: React.FC = () => {
       ? completedOrders.filter(o => selectedSales.includes(o.id)) 
       : completedOrders;
 
-    if (ordersToExport.length === 0) return;
+    if (ordersToExport.length === 0) {
+      alert('No hay ventas para exportar');
+      return;
+    }
 
     const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text('Reporte de Ventas - Restaurante Pro', 14, 20);
-    doc.setFontSize(10);
-    doc.text(`Fecha de reporte: ${new Date().toLocaleString()}`, 14, 28);
-    doc.text(`Total de órdenes: ${ordersToExport.length}`, 14, 34);
-    doc.text(`Ingreso total en este reporte: ${formatCurrency(ordersToExport.reduce((s, o) => s + o.totalPrice, 0))}`, 14, 40);
     
+    // Add some styling to header
+    doc.setFontSize(22);
+    doc.setTextColor(24, 24, 24);
+    doc.text('RESTAURANTE PRO', 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text('REPORTE DE VENTAS DETALLADO', 14, 30);
+    doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 35);
+
     const tableData = ordersToExport.map(order => [
       `#${order.id.slice(-6)}`,
-      order.waiterId || '---',
+      order.waiterId || 'Mesero Demo',
       new Date(order.createdAt).toLocaleString(),
       order.items.map(i => `${i.quantity}x ${i.name}`).join(', '),
       formatCurrency(order.totalPrice)
     ]);
 
-    (doc as any).autoTable({
+    autoTable(doc, {
       startY: 45,
-      head: [['ID Orden', 'Mesero', 'Fecha', 'Items', 'Total']],
+      head: [['ID ORDEN', 'MESERO', 'FECHA', 'ITEMS', 'TOTAL']],
       body: tableData,
-      headStyles: { fillColor: [24, 24, 24] },
-      alternateRowStyles: { fillColor: [250, 250, 250] },
+      theme: 'striped',
+      headStyles: { 
+        fillColor: [24, 24, 24], 
+        textColor: [255, 255, 255],
+        fontSize: 10,
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        4: { halign: 'right', fontStyle: 'bold' }
+      },
       margin: { top: 45 },
     });
 
@@ -117,9 +132,16 @@ export const AdminDashboard: React.FC = () => {
 
     try {
       doc.save(fileName);
-      console.log('PDF Export successful');
+      console.log('PDF Export successful:', fileName);
     } catch (err) {
-      console.error('PDF Export failed:', err);
+      console.error('PDF Export Error:', err);
+      // Alternative: open in new tab if save fails
+      try {
+        const docUrl = doc.output('bloburl');
+        window.open(docUrl.toString());
+      } catch (e2) {
+        alert('Error al guardar el PDF. Por favor verifique los permisos de su navegador.');
+      }
     }
   };
 
@@ -876,18 +898,39 @@ export const AdminDashboard: React.FC = () => {
                     <form onSubmit={(e) => {
                       e.preventDefault();
                       const formData = new FormData(e.currentTarget);
-                      const num = parseInt(formData.get('number') as string);
-                      const cap = parseInt(formData.get('capacity') as string);
-                      if (num && cap) addTable(num, cap);
-                      setIsAddingTable(false);
+                      const numStr = formData.get('number') as string;
+                      const capStr = formData.get('capacity') as string;
+                      
+                      const num = parseInt(numStr);
+                      const cap = parseInt(capStr);
+
+                      if (!isNaN(num) && !isNaN(cap)) {
+                        addTable(num, cap);
+                        setIsAddingTable(false);
+                      } else {
+                        alert('Por favor ingresa números válidos para mesa y capacidad');
+                      }
                     }} className="space-y-5">
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Número de Mesa</label>
-                        <input name="number" type="text" inputMode="numeric" pattern="[0-9]*" required autoFocus className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold text-neutral-900" />
+                        <input 
+                          name="number" 
+                          type="text" 
+                          placeholder="Ej: 1, 2, 3..." 
+                          required 
+                          autoFocus 
+                          className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold text-neutral-900" 
+                        />
                       </div>
                       <div className="space-y-1.5">
                          <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Capacidad (Personas)</label>
-                        <input name="capacity" type="text" inputMode="numeric" pattern="[0-9]*" defaultValue="4" required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold text-neutral-900" />
+                        <input 
+                          name="capacity" 
+                          type="text" 
+                          defaultValue="4" 
+                          required 
+                          className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold text-neutral-900" 
+                        />
                       </div>
                       <div className="flex gap-4 pt-4">
                         <button type="button" onClick={() => setIsAddingTable(false)} className="flex-1 font-black text-neutral-400 hover:text-neutral-600 uppercase tracking-widest text-sm">Cerrar</button>
