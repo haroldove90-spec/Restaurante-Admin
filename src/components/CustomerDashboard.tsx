@@ -112,19 +112,27 @@ export const CustomerDashboard: React.FC = () => {
             transition={{ delay: idx * 0.05 }}
             className="group flex gap-4 p-4 rounded-3xl bg-neutral-50 hover:bg-white border border-transparent hover:border-neutral-200 transition-all cursor-pointer"
           >
-            <div className="w-24 h-24 bg-neutral-200 rounded-2xl flex-shrink-0 flex items-center justify-center relative overflow-hidden">
-              <Star className="text-white opacity-20" size={40} />
-              <div className="absolute inset-0 bg-gradient-to-br from-neutral-300 to-neutral-400 mix-blend-overlay" />
+            <div className="w-24 h-24 bg-neutral-100 rounded-2xl flex-shrink-0 flex items-center justify-center relative overflow-hidden border border-neutral-100">
+              {item.image ? (
+                <img src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <Star className="text-neutral-200" size={32} />
+              )}
+              {!item.available && (
+                <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
+                   <span className="bg-red-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">AGOTADO</span>
+                </div>
+              )}
             </div>
-            <div className="flex-1 flex flex-col justify-between py-1">
+            <div className="flex-1 flex flex-col justify-between py-1 min-w-0">
               <div>
-                <h4 className="font-black text-lg group-hover:text-blue-600 transition-colors">{item.name}</h4>
-                <p className="text-xs text-neutral-400 line-clamp-2 mt-1">{item.description}</p>
+                <h4 className={cn("font-black text-lg transition-colors", item.available ? "group-hover:text-blue-600" : "text-neutral-400")}>{item.name}</h4>
+                <p className="text-[10px] text-neutral-400 font-medium line-clamp-2 mt-0.5">{item.description}</p>
               </div>
               <div className="flex justify-between items-end">
-                <span className="font-bold text-xl">{formatCurrency(item.price)}</span>
-                <div className="flex items-center gap-1 text-[10px] text-neutral-400 font-bold uppercase tracking-widest">
-                  <Clock size={12} /> 15-20 MIN
+                <span className={cn("font-bold text-xl", !item.available && "text-neutral-300")}>{formatCurrency(item.price)}</span>
+                <div className="flex items-center gap-1 text-[8px] text-neutral-400 font-bold uppercase tracking-widest">
+                  <Clock size={10} /> 15-20 MIN
                 </div>
               </div>
             </div>

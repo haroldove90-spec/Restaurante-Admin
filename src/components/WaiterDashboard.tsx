@@ -15,10 +15,20 @@ export const WaiterDashboard: React.FC = () => {
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeCategory, setActiveCategory] = useState<Category | 'todos'>('todos');
 
   const activeOrderForTable = orders.find(o => o.tableId === selectedTable?.id && o.status === 'active');
 
+  const categories: { id: Category | 'todos', label: string }[] = [
+    { id: 'todos', label: 'Todo' },
+    { id: 'entradas', label: 'Entradas' },
+    { id: 'platos_principales', label: 'Fondos' },
+    { id: 'bebidas', label: 'Bebidas' },
+    { id: 'postres', label: 'Postres' },
+  ];
+
   const addToCart = (item: MenuItem) => {
+    if (!item.available) return;
     setCart(prev => {
       const existing = prev.find(i => i.menuItemId === item.id);
       if (existing) {
@@ -67,10 +77,12 @@ export const WaiterDashboard: React.FC = () => {
     }
   };
 
-  const filteredMenu = menu.filter(item => 
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredMenu = menu.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          item.category.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = activeCategory === 'todos' || item.category === activeCategory;
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="h-full">
@@ -137,15 +149,31 @@ export const WaiterDashboard: React.FC = () => {
                 <h2 className="text-xl font-bold">Mesa {selectedTable.number}</h2>
               </div>
 
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
-                <input 
-                  type="text" 
-                  placeholder="Buscar platillo..."
-                  className="w-full pl-10 pr-4 py-2 bg-white border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow shadow-sm"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+                  <input 
+                    type="text" 
+                    placeholder="Buscar platillo..."
+                    className="w-full pl-10 pr-4 py-2 bg-white border border-neutral-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-shadow shadow-sm"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+                  {categories.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setActiveCategory(cat.id)}
+                      className={cn(
+                        "px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
+                        activeCategory === cat.id ? "bg-neutral-900 text-white" : "bg-white text-neutral-400 border border-neutral-100"
+                      )}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto max-h-[60vh] pr-2 scrollbar-hide">
@@ -154,15 +182,23 @@ export const WaiterDashboard: React.FC = () => {
                     key={item.id}
                     disabled={!item.available}
                     onClick={() => addToCart(item)}
-                    className="flex text-left p-3 rounded-xl border border-neutral-100 bg-white hover:border-neutral-300 hover:shadow-md transition-all group"
+                    className={cn(
+                      "flex text-left p-3 rounded-xl border transition-all group",
+                      item.available 
+                        ? "border-neutral-100 bg-white hover:border-neutral-300 hover:shadow-md" 
+                        : "border-neutral-50 bg-neutral-50/50 opacity-60 cursor-not-allowed"
+                    )}
                   >
-                    <div className="flex-1">
-                      <h4 className="font-bold text-neutral-900 group-hover:text-blue-600 transition-colors">{item.name}</h4>
-                      <p className="text-xs text-neutral-500 mt-1 line-clamp-1">{item.description}</p>
-                      <p className="text-sm font-bold mt-2">{formatCurrency(item.price)}</p>
+                    <div className="w-12 h-12 bg-neutral-100 rounded-lg mr-3 flex-shrink-0 overflow-hidden">
+                      {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />}
                     </div>
-                    <div className="flex items-center justify-center p-2 bg-neutral-50 rounded-lg group-hover:bg-blue-50 transition-colors">
-                      <Plus size={20} className="text-neutral-400 group-hover:text-blue-600" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <h4 className={cn("font-bold truncate", item.available ? "text-neutral-900 group-hover:text-blue-600" : "text-neutral-400")}>{item.name}</h4>
+                        {!item.available && <span className="bg-red-50 text-red-500 text-[8px] font-black px-1 rounded">AGOTADO</span>}
+                      </div>
+                      <p className="text-[10px] text-neutral-500 line-clamp-1">{item.description}</p>
+                      <p className="text-xs font-bold mt-1">{formatCurrency(item.price)}</p>
                     </div>
                   </button>
                 ))}

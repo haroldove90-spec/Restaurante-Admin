@@ -15,6 +15,9 @@ interface RestaurantContextType extends RestaurantState {
   updateOrderItemStatus: (orderId: string, itemId: string, status: OrderItemStatus) => void;
   completeOrder: (orderId: string) => void;
   cancelOrder: (orderId: string) => void;
+  addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
+  updateMenuItem: (id: string, item: Partial<MenuItem>) => void;
+  deleteMenuItem: (id: string) => void;
 }
 
 const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
@@ -22,7 +25,7 @@ const RestaurantContext = createContext<RestaurantContextType | undefined>(undef
 export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentRole, setRole] = useState<Role>('admin');
   const [tables, setTables] = useState<Table[]>(INITIAL_TABLES);
-  const [menu] = useState<MenuItem[]>(INITIAL_MENU);
+  const [menu, setMenu] = useState<MenuItem[]>(INITIAL_MENU);
   const [orders, setOrders] = useState<Order[]>([]);
 
   // Local storage persistence for the demo session
@@ -32,12 +35,16 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     
     const savedTables = localStorage.getItem('restoflow_tables');
     if (savedTables) setTables(JSON.parse(savedTables));
+
+    const savedMenu = localStorage.getItem('restoflow_menu');
+    if (savedMenu) setMenu(JSON.parse(savedMenu));
   }, []);
 
   useEffect(() => {
     localStorage.setItem('restoflow_orders', JSON.stringify(orders));
     localStorage.setItem('restoflow_tables', JSON.stringify(tables));
-  }, [orders, tables]);
+    localStorage.setItem('restoflow_menu', JSON.stringify(menu));
+  }, [orders, tables, menu]);
 
   const updateTableStatus = (tableId: string, status: Table['status']) => {
     setTables(prev => prev.map(t => t.id === tableId ? { ...t, status } : t));
@@ -81,6 +88,19 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const addMenuItem = (item: Omit<MenuItem, 'id'>) => {
+    const newItem: MenuItem = { ...item, id: `m${Date.now()}` };
+    setMenu(prev => [...prev, newItem]);
+  };
+
+  const updateMenuItem = (id: string, item: Partial<MenuItem>) => {
+    setMenu(prev => prev.map(m => m.id === id ? { ...m, ...item } : m));
+  };
+
+  const deleteMenuItem = (id: string) => {
+    setMenu(prev => prev.filter(m => m.id !== id));
+  };
+
   return (
     <RestaurantContext.Provider value={{
       currentRole,
@@ -92,7 +112,10 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       addOrder,
       updateOrderItemStatus,
       completeOrder,
-      cancelOrder
+      cancelOrder,
+      addMenuItem,
+      updateMenuItem,
+      deleteMenuItem
     }}>
       {children}
     </RestaurantContext.Provider>
