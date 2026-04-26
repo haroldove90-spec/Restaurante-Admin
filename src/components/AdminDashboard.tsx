@@ -837,6 +837,12 @@ export const AdminDashboard: React.FC = () => {
                   <h4 className="font-black text-neutral-900 text-lg">Mesa {table.number}</h4>
                   <p className="text-[10px] font-black text-neutral-400 uppercase tracking-widest mt-1">{table.capacity} Personas</p>
                   
+                  {table.totalActivations !== undefined && (
+                    <div className="absolute top-4 right-4 bg-emerald-50 text-emerald-600 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-100">
+                      {table.totalActivations} ACTIVACIONES
+                    </div>
+                  )}
+                  
                   <div className="mt-4 pt-4 border-t border-neutral-50 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button 
                       onClick={() => deleteTable(table.id)}

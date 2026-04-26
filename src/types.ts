@@ -26,6 +26,7 @@ export interface Table {
   status: TableStatus;
   capacity: number;
   currentDiners?: number; // Number of diners currently at the table
+  totalActivations?: number; // Times the table has been activated
 }
 
 export type OrderItemStatus = 'pending' | 'cooking' | 'ready' | 'served';

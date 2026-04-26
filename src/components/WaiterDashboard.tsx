@@ -237,6 +237,13 @@ export const WaiterDashboard: React.FC = () => {
                   >
                     <span className="text-xs font-bold uppercase opacity-50">Mesa</span>
                     <span className="text-3xl font-black">{table.number}</span>
+                    
+                    {table.totalActivations !== undefined && (
+                      <div className="absolute top-2 right-2 text-[8px] font-black bg-neutral-100 text-neutral-400 px-1.5 py-0.5 rounded-full">
+                        {table.totalActivations}v
+                      </div>
+                    )}
+                    
                     <span className={cn(
                       "text-[10px] font-bold px-2 py-0.5 rounded-full",
                       table.status === 'available' ? "bg-emerald-200" :
@@ -246,8 +253,7 @@ export const WaiterDashboard: React.FC = () => {
                       table.status === 'occupied' ? 'OCUPADA' : 'SUCIA'}
                     </span>
                     
-                    {table.status !== 'available' && (
-                      <div className="flex flex-col items-center gap-1 mt-2">
+                    <div className="flex flex-col items-center gap-1 mt-2">
                         {table.status === 'occupied' && (
                           <>
                             <span className="text-[9px] font-black">{table.currentDiners} COMENSALES</span>
@@ -268,19 +274,34 @@ export const WaiterDashboard: React.FC = () => {
                             </div>
                           </>
                         )}
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (confirm(`¿Deseas resetear la mesa ${table.number} a disponible?`)) {
-                              updateTableStatus(table.id, 'available');
-                            }
-                          }}
-                          className="mt-1 text-[8px] font-black underline uppercase text-neutral-400 hover:text-neutral-900"
-                        >
-                          Reiniciar Mesa
-                        </button>
-                      </div>
-                    )}
+                        
+                        {(table.status === 'dirty' || table.status === 'occupied') && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const msg = table.status === 'occupied' ? '¿Deseas cerrar el servicio y marcar la mesa como sucia?' : '¿Deseas resetear la mesa a disponible?';
+                              if (confirm(msg)) {
+                                updateTableStatus(table.id, table.status === 'occupied' ? 'dirty' : 'available', 0);
+                              }
+                            }}
+                            className="mt-1 text-[8px] font-black underline uppercase text-neutral-400 hover:text-neutral-900"
+                          >
+                            {table.status === 'occupied' ? 'Finalizar' : 'Liberar'}
+                          </button>
+                        )}
+
+                        {table.status === 'available' && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleTableSelect(table);
+                            }}
+                            className="mt-1 text-[8px] font-black underline uppercase text-neutral-400 hover:text-emerald-600"
+                          >
+                            Abrir Servicio
+                          </button>
+                        )}
+                    </div>
 
                     {table.status === 'occupied' && (
                       <div className="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full animate-pulse" />

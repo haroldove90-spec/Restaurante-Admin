@@ -1,34 +1,27 @@
--- SQL for Restaurante Pro
+-- SQL for Restaurante Pro - Update
 -- Execute this in your Supabase SQL Editor
 
--- 1. Table for Categories
-CREATE TABLE IF NOT EXISTS public.categories (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL UNIQUE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- 2. Add columns to Tables for Diners
+-- 1. Add activation counter to tables
 ALTER TABLE public.tables 
-ADD COLUMN IF NOT EXISTS current_diners INTEGER DEFAULT 0;
+ADD COLUMN IF NOT EXISTS total_activations INTEGER DEFAULT 0;
 
--- 3. Update Menu Items for dynamic categories
--- Ensure the category column is TEXT and not an ENUM if you want it dynamic
-ALTER TABLE public.menu_items 
-ALTER COLUMN category TYPE TEXT;
+-- 2. Fix RLS for categories (ALLOW ALL FOR DEMO/DEVELOPMENT)
+-- If RLS is enabled, we need policies to allow inserting/deleting
+ALTER TABLE public.categories ENABLE ROW LEVEL SECURITY;
 
--- 4. Update Orders to track diners
--- The items column in 'orders' is usually JSONB by default. 
--- Ensure your 'orders' table can store the dinerNumber in the items array.
+DROP POLICY IF EXISTS "Allow all for categories" ON public.categories;
+CREATE POLICY "Allow all for categories" ON public.categories 
+FOR ALL USING (true) WITH CHECK (true);
 
--- 5. Insert some initial categories if empty
-INSERT INTO public.categories (id, name)
-VALUES 
-('c1', 'ENTRADAS'),
-('c2', 'PLATOS PRINCIPALES'),
-('c3', 'BEBIDAS'),
-('c4', 'POSTRES')
-ON CONFLICT (name) DO NOTHING;
+-- Also ensure RLS for other tables if needed
+ALTER TABLE public.tables ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all for tables" ON public.tables;
+CREATE POLICY "Allow all for tables" ON public.tables FOR ALL USING (true) WITH CHECK (true);
 
--- 6. Enable Realtime for the new categories table
-ALTER PUBLICATION supabase_realtime ADD TABLE categories;
+ALTER TABLE public.menu_items ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all for menu_items" ON public.menu_items;
+CREATE POLICY "Allow all for menu_items" ON public.menu_items FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all for orders" ON public.orders;
+CREATE POLICY "Allow all for orders" ON public.orders FOR ALL USING (true) WITH CHECK (true);

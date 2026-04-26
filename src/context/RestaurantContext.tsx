@@ -93,8 +93,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         if (tablesData) {
           setTables(tablesData.map(t => ({
-            ...t,
-            currentDiners: t.current_diners || 0
+            id: t.id,
+            number: t.number,
+            status: t.status,
+            capacity: t.capacity,
+            currentDiners: t.current_diners || 0,
+            totalActivations: t.total_activations || 0
           })));
         }
         if (categoriesData && categoriesData.length > 0) {
@@ -188,8 +192,14 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const updateTableStatus = async (tableId: string, status: Table['status'], currentDiners?: number) => {
+    const table = tables.find(t => t.id === tableId);
     const updateData: any = { status };
     if (currentDiners !== undefined) updateData.current_diners = currentDiners;
+
+    // If activating the table (making it occupied), increment activations
+    if (status === 'occupied' && table?.status !== 'occupied') {
+      updateData.total_activations = (table?.totalActivations || 0) + 1;
+    }
 
     const { error } = await supabase.from('tables').update(updateData).eq('id', tableId);
     if (error && (error.message.includes("column \"current_diners\"") || error.code === '42703')) {
