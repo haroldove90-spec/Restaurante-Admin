@@ -24,10 +24,25 @@ import { MenuItem, Category, Employee, EmployeeRole } from '../types';
 type AdminTab = 'dashboard' | 'menu' | 'sales' | 'employees';
 
 export const AdminDashboard: React.FC = () => {
-  const { orders, menu, addMenuItem, updateMenuItem, deleteMenuItem, employees, addEmployee, updateEmployee, deleteEmployee } = useRestaurant();
-  const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
+  const { 
+    orders, menu, addMenuItem, updateMenuItem, deleteMenuItem, 
+    employees, addEmployee, updateEmployee, deleteEmployee,
+    uploadImage
+  } = useRestaurant();
+  const [activeTab, setActiveTabState] = useState<AdminTab>(() => {
+    const saved = localStorage.getItem('admin_active_tab');
+    return (saved as AdminTab) || 'dashboard';
+  });
+
+  const setActiveTab = (tab: AdminTab) => {
+    setActiveTabState(tab);
+    localStorage.setItem('admin_active_tab', tab);
+  };
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [isAddingEmployee, setIsAddingEmployee] = useState(false);
 
@@ -258,24 +273,70 @@ export const AdminDashboard: React.FC = () => {
                   >
                     <h3 className="text-xl font-black mb-6">{isAddingItem ? 'Añadir Platillo' : 'Editar Platillo'}</h3>
                     <form 
-                      onSubmit={(e) => {
+                      onSubmit={async (e) => {
                         e.preventDefault();
                         const formData = new FormData(e.currentTarget);
+                        setIsUploading(true);
+
+                        let imageUrl = editingItem?.imageUrl || '';
+                        
+                        if (imageFile) {
+                          const uploadedUrl = await uploadImage(imageFile);
+                          if (uploadedUrl) imageUrl = uploadedUrl;
+                        }
+
                         const itemData = {
                           name: formData.get('name') as string,
                           description: formData.get('description') as string,
                           price: parseFloat(formData.get('price') as string),
                           category: formData.get('category') as Category,
-                          imageUrl: formData.get('imageUrl') as string,
+                          imageUrl,
                           available: formData.get('available') === 'on'
                         };
+
                         if (isAddingItem) addMenuItem(itemData);
                         else if (editingItem) updateMenuItem(editingItem.id, itemData);
+                        
+                        setIsUploading(false);
                         setIsAddingItem(false);
                         setEditingItem(null);
+                        setImageFile(null);
+                        setImagePreview(null);
                       }}
                       className="space-y-4"
                     >
+                      <div className="flex justify-center mb-4">
+                        <div className="relative group">
+                          <div className="w-32 h-32 bg-neutral-100 rounded-2xl flex items-center justify-center overflow-hidden border-2 border-dashed border-neutral-300 group-hover:border-neutral-400 transition-colors">
+                            {imagePreview || editingItem?.imageUrl ? (
+                              <img 
+                                src={imagePreview || editingItem?.imageUrl} 
+                                alt="Preview" 
+                                className="w-full h-full object-cover" 
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <ImageIcon size={32} className="text-neutral-400" />
+                            )}
+                          </div>
+                          <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl cursor-pointer">
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  setImageFile(file);
+                                  setImagePreview(URL.createObjectURL(file));
+                                }
+                              }}
+                            />
+                            <span className="text-white text-[10px] font-bold uppercase tracking-wider">Cambiar</span>
+                          </label>
+                        </div>
+                      </div>
+
                       <div className="space-y-1">
                         <label className="text-xs font-bold text-neutral-400 uppercase">Nombre</label>
                         <input name="name" defaultValue={editingItem?.name} required className="w-full px-4 py-2 bg-neutral-50 border border-neutral-100 rounded-xl" />
@@ -300,18 +361,31 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="space-y-1 text-left">
-                        <label className="text-xs font-bold text-neutral-400 uppercase">URL de Imagen</label>
-                        <input name="imageUrl" defaultValue={editingItem?.imageUrl} placeholder="https://ejemplo.com/imagen.jpg" className="w-full px-4 py-2 bg-neutral-50 border border-neutral-100 rounded-xl" />
-                      </div>
-
                       <div className="flex items-center gap-2 py-2">
                         <input name="available" type="checkbox" defaultChecked={editingItem ? editingItem.available : true} className="w-4 h-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900" />
                         <label className="text-xs font-bold text-neutral-600 uppercase">Disponible para la venta</label>
                       </div>
                       <div className="flex gap-3 pt-6">
-                        <button type="button" onClick={() => { setIsAddingItem(false); setEditingItem(null); }} className="flex-1 py-3 font-bold text-neutral-400 hover:text-neutral-600 transition-colors">Cancelar</button>
-                        <button type="submit" className="flex-1 py-3 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-black transition-shadow shadow-lg">Guardar</button>
+                        <button 
+                          type="button" 
+                          disabled={isUploading}
+                          onClick={() => { 
+                            setIsAddingItem(false); 
+                            setEditingItem(null); 
+                            setImageFile(null);
+                            setImagePreview(null);
+                          }} 
+                          className="flex-1 py-3 font-bold text-neutral-400 hover:text-neutral-600 transition-colors disabled:opacity-50"
+                        >
+                          Cancelar
+                        </button>
+                        <button 
+                          type="submit" 
+                          disabled={isUploading}
+                          className="flex-1 py-3 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-black transition-shadow shadow-lg disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {isUploading ? 'Guardando...' : 'Guardar'}
+                        </button>
                       </div>
                     </form>
                   </motion.div>

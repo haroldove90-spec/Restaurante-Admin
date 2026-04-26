@@ -32,6 +32,7 @@ interface RestaurantContextType extends RestaurantState {
   addEmployee: (employee: Omit<Employee, 'id'>) => void;
   updateEmployee: (id: string, employee: Partial<Employee>) => void;
   deleteEmployee: (id: string) => void;
+  uploadImage: (file: File) => Promise<string | null>;
   addNotification: (message: string, type?: Notification['type']) => void;
   removeNotification: (id: string) => void;
 }
@@ -39,7 +40,10 @@ interface RestaurantContextType extends RestaurantState {
 const RestaurantContext = createContext<RestaurantContextType | undefined>(undefined);
 
 export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentRole, setRole] = useState<Role>('admin');
+  const [currentRole, setRoleState] = useState<Role>(() => {
+    const saved = localStorage.getItem('restoflow_role');
+    return (saved as Role) || 'admin';
+  });
   const [tables, setTables] = useState<Table[]>([]);
   const [menu, setMenu] = useState<MenuItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -47,10 +51,17 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const setRole = (role: Role) => {
+    setRoleState(role);
+    localStorage.setItem('restoflow_role', role);
+  };
+
   // Initialize and Subscribe
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
+    let isMounted = true;
+
+    const fetchData = async (isInitial = false) => {
+      if (isInitial && isMounted) setLoading(true);
       try {
         const [
           { data: menuData },
@@ -64,10 +75,12 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           supabase.from('orders').select('*')
         ]);
 
+        if (!isMounted) return;
+
         if (menuData) {
           setMenu(menuData.map(m => ({
             ...m,
-            imageUrl: m.image_url // map image_url to imageUrl
+            imageUrl: m.image || m.image_url // handle both common column names
           })));
         }
         if (tablesData) setTables(tablesData);
@@ -76,6 +89,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             id: e.id,
             name: e.name,
             role: e.role,
+            email: e.email,
+            phone: e.phone,
             itemsCompleted: e.items_completed || 0,
             totalRating: parseFloat(e.total_rating) || 5.0
           })));
@@ -95,21 +110,23 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       } catch (err) {
         console.error('Error fetching Supabase data:', err);
       } finally {
-        setLoading(false);
+        if (isInitial && isMounted) setLoading(false);
       }
     };
 
-    fetchData();
+    fetchData(true);
 
     // Set up Realtime Subscriptions
+    const subFetch = () => fetchData(false);
     const channels = [
-      supabase.channel('menu_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, fetchData).subscribe(),
-      supabase.channel('table_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, fetchData).subscribe(),
-      supabase.channel('employee_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, fetchData).subscribe(),
-      supabase.channel('order_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchData).subscribe(),
+      supabase.channel('menu_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, subFetch).subscribe(),
+      supabase.channel('table_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, subFetch).subscribe(),
+      supabase.channel('employee_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, subFetch).subscribe(),
+      supabase.channel('order_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, subFetch).subscribe(),
     ];
 
     return () => {
+      isMounted = false;
       channels.forEach(ch => supabase.removeChannel(ch));
     };
   }, []);
@@ -194,31 +211,61 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const addMenuItem = async (item: Omit<MenuItem, 'id'>) => {
     const id = `m${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const { imageUrl, ...rest } = item;
+    
+    // Success flag to avoid double notifications
+    let success = false;
+
+    // Try with 'image' column first
     const { error } = await supabase.from('menu_items').insert({ 
       ...rest, 
       id,
-      image_url: imageUrl 
+      image: imageUrl
     });
+
     if (error) {
-      console.error("Error adding menu item:", error);
-      addNotification(`Error al guardar platillo: ${error.message}`, "warning");
+      // If 'image' doesn't exist, try 'image_url'
+      if (error.message.includes("column \"image\"") || error.code === '42703') {
+        const { error: error2 } = await supabase.from('menu_items').insert({ 
+          ...rest, 
+          id,
+          image_url: imageUrl 
+        });
+        if (!error2) success = true;
+        else addNotification(`Error: ${error2.message}`, "warning");
+      } else {
+        addNotification(`Error: ${error.message}`, "warning");
+      }
     } else {
-      addNotification("Platillo guardado con éxito", "success");
+      success = true;
     }
+
+    if (success) addNotification("Platillo guardado con éxito", "success");
   };
 
   const updateMenuItem = async (id: string, item: Partial<MenuItem>) => {
     const { imageUrl, ...rest } = item;
     const updateData: any = { ...rest };
-    if (imageUrl !== undefined) updateData.image_url = imageUrl;
+    if (imageUrl !== undefined) updateData.image = imageUrl;
     
+    let success = false;
+
     const { error } = await supabase.from('menu_items').update(updateData).eq('id', id);
+    
     if (error) {
-      console.error("Error updating menu item:", error);
-      addNotification(`Error al actualizar platillo: ${error.message}`, "warning");
+      if (error.message.includes("column \"image\"") || error.code === '42703') {
+        delete updateData.image;
+        updateData.image_url = imageUrl;
+        const { error: error2 } = await supabase.from('menu_items').update(updateData).eq('id', id);
+        if (!error2) success = true;
+        else addNotification(`Error: ${error2.message}`, "warning");
+      } else {
+        addNotification(`Error: ${error.message}`, "warning");
+      }
     } else {
-      addNotification("Platillo actualizado", "success");
+      success = true;
     }
+
+    if (success) addNotification("Platillo actualizado", "success");
   };
 
   const deleteMenuItem = async (id: string) => {
@@ -265,6 +312,40 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     else addNotification("Empleado eliminado", "success");
   };
 
+  const uploadImage = async (file: File) => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `menu/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('restaurant-assets')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        // If bucket doesn't exist, try 'images'
+        if (uploadError.message.includes("is not found")) {
+          const { error: uploadError2 } = await supabase.storage
+            .from('images')
+            .upload(filePath, file);
+          
+          if (uploadError2) throw uploadError2;
+          
+          const { data } = supabase.storage.from('images').getPublicUrl(filePath);
+          return data.publicUrl;
+        }
+        throw uploadError;
+      }
+
+      const { data } = supabase.storage.from('restaurant-assets').getPublicUrl(filePath);
+      return data.publicUrl;
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      addNotification(`Error al subir imagen: ${error.message}. Asegúrate de que exista el bucket 'restaurant-assets' o 'images' en Supabase Storage.`, 'warning');
+      return null;
+    }
+  };
+
   return (
     <RestaurantContext.Provider value={{
       currentRole,
@@ -286,6 +367,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       addEmployee,
       updateEmployee,
       deleteEmployee,
+      uploadImage,
       addNotification,
       removeNotification
     }}>

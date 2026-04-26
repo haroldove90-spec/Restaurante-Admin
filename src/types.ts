@@ -14,6 +14,8 @@ export interface Employee {
   role: EmployeeRole;
   phone?: string;
   active: boolean;
+  itemsCompleted?: number;
+  totalRating?: number;
 }
 
 export type TableStatus = 'available' | 'occupied' | 'dirty' | 'reserved';
