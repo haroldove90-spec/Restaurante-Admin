@@ -82,21 +82,24 @@ export const CustomerDashboard: React.FC = () => {
       )}
 
       {/* Category Chips */}
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide py-1">
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setActiveCategory(cat.id)}
-            className={cn(
-              "whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold transition-all",
-              activeCategory === cat.id 
-                ? "bg-neutral-900 text-white shadow-lg scale-105" 
-                : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
-            )}
-          >
-            {cat.label}
-          </button>
-        ))}
+      <div className="relative">
+        <div className="flex gap-2 overflow-x-auto pb-4 pt-1 px-1 scrollbar-hide snap-x">
+          {categories.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => setActiveCategory(cat.id)}
+              className={cn(
+                "whitespace-nowrap px-6 py-2.5 rounded-full text-sm font-black transition-all snap-start",
+                activeCategory === cat.id 
+                  ? "bg-neutral-900 text-white shadow-xl scale-105" 
+                  : "bg-neutral-50 text-neutral-400 border border-neutral-100 hover:bg-neutral-100"
+              )}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+        <div className="absolute top-0 right-0 h-full w-12 bg-linear-to-l from-white to-transparent pointer-events-none" />
       </div>
 
       {/* Menu Grid */}

@@ -144,17 +144,17 @@ export const KitchenDashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">KDS - Pantalla de Cocina</h1>
-          <p className="text-neutral-500 text-sm">Gestiona la preparación de pedidos en tiempo real.</p>
+          <h1 className="text-3xl font-black tracking-tight text-neutral-900 italic">KDS - COCINA</h1>
+          <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mt-1">Gestión de órdenes en tiempo real</p>
         </div>
-        <div className="flex bg-neutral-100 p-1 rounded-2xl">
+        <div className="flex bg-neutral-100 p-1.5 rounded-2xl gap-1 overflow-x-auto scrollbar-hide max-w-full">
           <button 
             onClick={() => setActiveTab('pending')}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all",
-              activeTab === 'pending' ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-400"
+              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap",
+              activeTab === 'pending' ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-400 hover:text-neutral-600"
             )}
           >
             <ChefHat size={16} /> COMANDAS PENDIENTES ({pendingOrders.length})
@@ -162,8 +162,8 @@ export const KitchenDashboard: React.FC = () => {
           <button 
             onClick={() => setActiveTab('prepared')}
             className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all",
-              activeTab === 'prepared' ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-400"
+              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap",
+              activeTab === 'prepared' ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-400 hover:text-neutral-600"
             )}
           >
             <History size={16} /> PLATILLOS PREPARADOS
@@ -323,8 +323,8 @@ export const KitchenDashboard: React.FC = () => {
                 </button>
               </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
+            <div className="overflow-x-auto scrollbar-hide">
+              <table className="w-full text-left min-w-[700px]">
                 <thead>
                   <tr className="bg-neutral-50 text-[10px] font-black text-neutral-400 uppercase tracking-widest">
                     <th className="px-8 py-4 w-10">

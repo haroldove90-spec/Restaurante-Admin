@@ -288,9 +288,10 @@ export const WaiterDashboard: React.FC = () => {
                 </div>
 
                 <div className="bg-white rounded-3xl border border-neutral-100 overflow-hidden">
-                  <table className="w-full text-left text-xs sm:text-sm">
-                    <thead>
-                      <tr className="bg-neutral-50 border-b border-neutral-100">
+                  <div className="overflow-x-auto scrollbar-hide">
+                    <table className="w-full text-left text-xs sm:text-sm min-w-[500px]">
+                      <thead>
+                        <tr className="bg-neutral-50 border-b border-neutral-100">
                         <th className="px-6 py-4 font-bold text-neutral-400">ID</th>
                         <th className="px-6 py-4 font-bold text-neutral-400">HORA</th>
                         <th className="px-6 py-4 font-bold text-neutral-400 text-right">TOTAL</th>
@@ -307,7 +308,8 @@ export const WaiterDashboard: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
-              </motion.div>
+              </div>
+            </motion.div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                 {tables.map(table => (
@@ -479,19 +481,24 @@ export const WaiterDashboard: React.FC = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-                  {categories.map(cat => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setActiveCategory(cat.id)}
-                      className={cn(
-                        "px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
-                        activeCategory === cat.id ? "bg-neutral-900 text-white" : "bg-white text-neutral-400 border border-neutral-100"
-                      )}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
+                <div className="relative flex-1">
+                  <div className="flex gap-2 overflow-x-auto pb-2 px-1 scrollbar-hide snap-x">
+                    {categories.map(cat => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setActiveCategory(cat.id)}
+                        className={cn(
+                          "px-5 py-2.5 rounded-xl text-[10px] font-black transition-all whitespace-nowrap snap-start shadow-sm outline-none",
+                          activeCategory === cat.id 
+                            ? "bg-neutral-900 text-white" 
+                            : "bg-white text-neutral-400 border border-neutral-100 hover:bg-neutral-50"
+                        )}
+                      >
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="absolute top-0 right-0 h-full w-12 bg-linear-to-l from-white to-transparent pointer-events-none" />
                 </div>
               </div>
 

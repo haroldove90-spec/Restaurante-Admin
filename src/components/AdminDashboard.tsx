@@ -146,50 +146,59 @@ export const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 pb-20 md:pb-0">
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-4 border-b border-neutral-100 md:border-none">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-neutral-900">Restaurante Pro</h1>
-          <p className="text-neutral-500 text-sm font-medium">Control total de la operación.</p>
+          <h1 className="text-3xl font-black tracking-tight text-neutral-900 italic">RESTAURANTE PRO</h1>
+          <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mt-1">Panel de Administración</p>
         </div>
-
-        <div className="flex bg-neutral-100 p-1 rounded-2xl gap-1 self-start overflow-x-auto max-w-full scrollbar-hide">
-          <TabButton 
-            active={activeTab === 'dashboard'} 
-            onClick={() => setActiveTab('dashboard')} 
-            icon={<LayoutDashboard size={16} />}
-            label="Resumen" 
-          />
-          <TabButton 
-            active={activeTab === 'menu'} 
-            onClick={() => setActiveTab('menu')} 
-            icon={<UtensilsCrossed size={16} />}
-            label="Menú" 
-          />
-          <TabButton 
-            active={activeTab === 'categories'} 
-            onClick={() => setActiveTab('categories')} 
-            icon={<ShoppingBag size={16} />}
-            label="Categorías" 
-          />
-          <TabButton 
-            active={activeTab === 'sales'} 
-            onClick={() => setActiveTab('sales')} 
-            icon={<Wallet size={16} />}
-            label="Ventas" 
-          />
-          <TabButton 
-            active={activeTab === 'employees'} 
-            onClick={() => setActiveTab('employees')} 
-            icon={<Users size={16} />}
-            label="Staff" 
-          />
-          <TabButton 
-            active={activeTab === 'tables'} 
-            onClick={() => setActiveTab('tables')} 
-            icon={<Grid size={16} />}
-            label="Mesas" 
-          />
+        
+        <div className="relative group">
+          <div className="flex bg-neutral-100 p-1.5 rounded-2xl gap-1 overflow-x-auto scrollbar-hide snap-x">
+            <TabButton 
+              active={activeTab === 'dashboard'} 
+              onClick={() => setActiveTab('dashboard')} 
+              icon={<LayoutDashboard size={16} />}
+              label="Resumen" 
+              className="snap-start"
+            />
+            <TabButton 
+              active={activeTab === 'menu'} 
+              onClick={() => setActiveTab('menu')} 
+              icon={<UtensilsCrossed size={16} />}
+              label="Menú" 
+              className="snap-start"
+            />
+            <TabButton 
+              active={activeTab === 'categories'} 
+              onClick={() => setActiveTab('categories')} 
+              icon={<ShoppingBag size={16} />}
+              label="Categorías" 
+              className="snap-start"
+            />
+            <TabButton 
+              active={activeTab === 'sales'} 
+              onClick={() => setActiveTab('sales')} 
+              icon={<Wallet size={16} />}
+              label="Ventas" 
+              className="snap-start"
+            />
+            <TabButton 
+              active={activeTab === 'employees'} 
+              onClick={() => setActiveTab('employees')} 
+              icon={<Users size={16} />}
+              label="Staff" 
+              className="snap-start"
+            />
+            <TabButton 
+              active={activeTab === 'tables'} 
+              onClick={() => setActiveTab('tables')} 
+              icon={<Grid size={16} />}
+              label="Mesas" 
+              className="snap-start"
+            />
+          </div>
+          <div className="absolute top-0 right-0 h-full w-8 bg-linear-to-l from-neutral-100 to-transparent pointer-events-none lg:hidden" />
         </div>
       </header>
 
@@ -556,8 +565,8 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="bg-white rounded-3xl border border-neutral-200 shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
+              <div className="overflow-x-auto scrollbar-hide">
+                <table className="w-full text-left min-w-[800px]">
                   <thead>
                     <tr className="bg-neutral-50 border-b border-neutral-100">
                       <th className="px-6 py-4">
@@ -894,33 +903,38 @@ export const AdminDashboard: React.FC = () => {
                     initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
                     className="relative bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl"
                   >
-                    <h3 className="text-2xl font-black mb-8">Nueva Mesa</h3>
+                    <h3 className="text-2xl font-black mb-8 text-neutral-900 leading-tight">NUEVA MESA</h3>
                     <form onSubmit={(e) => {
                       e.preventDefault();
                       const formData = new FormData(e.currentTarget);
                       const numStr = (formData.get('number') as string).trim();
-                      const capStr = formData.get('capacity') as string;
+                      const capStr = (formData.get('capacity') as string).trim();
                       
-                      const num = parseInt(numStr);
-                      const cap = parseInt(capStr);
+                      // Flexible parsing: Try to find numbers in the string
+                      const numMatch = numStr.match(/\d+/);
+                      const capMatch = capStr.match(/\d+/);
+                      
+                      const num = numMatch ? parseInt(numMatch[0]) : NaN;
+                      const cap = capMatch ? parseInt(capMatch[0]) : NaN;
 
-                      if (!isNaN(num) && !isNaN(cap)) {
+                      if (!isNaN(num) && num > 0 && !isNaN(cap) && cap > 0) {
                         addTable(num, cap);
                         setIsAddingTable(false);
                       } else {
-                        alert('Por favor un número válido para la mesa y una capacidad válida');
+                        alert('Por favor ingresa un número de mesa válido (solo números) y una capacidad válida.');
                       }
-                    }} className="space-y-5">
+                    }} className="space-y-6">
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Número de Mesa</label>
                         <input 
                           name="number" 
-                          type="number" 
-                          placeholder="Ej: 1, 2, 3..." 
+                          type="text" 
+                          placeholder="Ej: 7" 
                           required 
                           autoFocus 
-                          className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold text-neutral-900" 
+                          className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-black text-neutral-900 text-lg transition-all" 
                         />
+                        <p className="text-[9px] text-neutral-400 font-bold italic">Ingresa solo el número de la mesa</p>
                       </div>
                       <div className="space-y-1.5">
                          <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Capacidad (Personas)</label>
@@ -929,12 +943,12 @@ export const AdminDashboard: React.FC = () => {
                           type="text" 
                           defaultValue="4" 
                           required 
-                          className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold text-neutral-900" 
+                          className="w-full px-5 py-3.5 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-black text-neutral-900 text-lg transition-all" 
                         />
                       </div>
-                      <div className="flex gap-4 pt-4">
-                        <button type="button" onClick={() => setIsAddingTable(false)} className="flex-1 font-black text-neutral-400 hover:text-neutral-600 uppercase tracking-widest text-sm">Cerrar</button>
-                        <button type="submit" className="flex-1 py-4 bg-neutral-900 text-white rounded-[1.25rem] font-black hover:bg-black uppercase tracking-widest text-sm shadow-xl">Crear Mesa</button>
+                      <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                        <button type="button" onClick={() => setIsAddingTable(false)} className="order-2 sm:order-1 flex-1 py-4 font-black text-neutral-400 hover:text-neutral-600 uppercase tracking-widest text-[10px]">CERRAR</button>
+                        <button type="submit" className="order-1 sm:order-2 flex-1 py-4 bg-neutral-900 text-white rounded-2xl font-black hover:bg-black uppercase tracking-widest text-xs shadow-2xl active:scale-95 transition-all">CREAR MESA</button>
                       </div>
                     </form>
                   </motion.div>
@@ -948,12 +962,13 @@ export const AdminDashboard: React.FC = () => {
   );
 };
 
-const TabButton: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string }> = ({ active, onClick, icon, label }) => (
+const TabButton: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string; className?: string }> = ({ active, onClick, icon, label, className }) => (
   <button 
     onClick={onClick}
     className={cn(
-      "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all",
-      active ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-400 hover:text-neutral-600"
+      "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shrink-0 whitespace-nowrap",
+      active ? "bg-white text-neutral-900 shadow-sm shadow-black/5" : "text-neutral-400 hover:text-neutral-600 hover:bg-neutral-200/50",
+      className
     )}
   >
     {icon}
