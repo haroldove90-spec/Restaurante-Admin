@@ -31,13 +31,13 @@ export const AdminDashboard: React.FC = () => {
     uploadImage
   } = useRestaurant();
   const [activeTab, setActiveTabState] = useState<AdminTab>(() => {
-    const saved = localStorage.getItem('admin_active_tab');
+    const saved = localStorage.getItem('restaurante_active_tab');
     return (saved as AdminTab) || 'dashboard';
   });
 
   const setActiveTab = (tab: AdminTab) => {
     setActiveTabState(tab);
-    localStorage.setItem('admin_active_tab', tab);
+    localStorage.setItem('restaurante_active_tab', tab);
   };
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
@@ -323,9 +323,13 @@ export const AdminDashboard: React.FC = () => {
                           <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Precio</label>
                           <input name="price" type="number" step="0.01" defaultValue={editingItem?.price} required className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-black" />
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1.5 overflow-visible">
                           <label className="text-[10px] font-black text-neutral-400 uppercase tracking-widest">Categoría</label>
-                          <select name="category" defaultValue={editingItem?.category} className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold">
+                          <select 
+                            name="category" 
+                            defaultValue={editingItem?.category || (categories[0]?.name)} 
+                            className="w-full px-5 py-3 bg-neutral-50 border border-neutral-100 rounded-2xl outline-none focus:ring-2 focus:ring-neutral-900 font-bold appearance-none cursor-pointer"
+                          >
                             {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                           </select>
                         </div>

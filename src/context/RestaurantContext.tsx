@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Table, Order, MenuItem, RestaurantState, OrderItemStatus, OrderStatus, Role, Employee } from '../types';
+import { Table, Order, MenuItem, RestaurantState, OrderItemStatus, OrderStatus, Role, Employee, Category } from '../types';
 import { INITIAL_MENU, INITIAL_TABLES } from '../constants';
 import { supabase } from '../lib/supabase';
 
@@ -95,8 +95,16 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             currentDiners: t.current_diners || 0
           })));
         }
-        if (categoriesData) {
+        if (categoriesData && categoriesData.length > 0) {
           setCategories(categoriesData);
+        } else {
+          // Default categories if database is empty or not yet seeded
+          setCategories([
+            { id: 'c1', name: 'ENTRADAS' },
+            { id: 'c2', name: 'PLATOS PRINCIPALES' },
+            { id: 'c3', name: 'BEBIDAS' },
+            { id: 'c4', name: 'POSTRES' }
+          ]);
         }
         if (employeesData) {
           setEmployees(employeesData.map(e => ({
@@ -132,12 +140,21 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // Set up Realtime Subscriptions
     const subFetch = () => fetchData(false);
+    
+    // Broadcast channel for notifications
+    const notificationChannel = supabase.channel('notifications')
+      .on('broadcast', { event: 'new-notif' }, ({ payload }) => {
+        setNotifications(prev => [payload, ...prev].slice(0, 5));
+      })
+      .subscribe();
+
     const channels = [
       supabase.channel('menu_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, subFetch).subscribe(),
       supabase.channel('table_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, subFetch).subscribe(),
       supabase.channel('employee_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, subFetch).subscribe(),
       supabase.channel('order_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, subFetch).subscribe(),
       supabase.channel('category_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, subFetch).subscribe(),
+      notificationChannel
     ];
 
     return () => {
@@ -153,6 +170,14 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       type,
       timestamp: Date.now()
     };
+    
+    // Broadcast to other clients
+    supabase.channel('notifications').send({
+      type: 'broadcast',
+      event: 'new-notif',
+      payload: newNotif,
+    });
+
     setNotifications(prev => [newNotif, ...prev].slice(0, 5));
   };
 

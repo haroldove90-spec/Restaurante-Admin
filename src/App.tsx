@@ -47,7 +47,7 @@ function MainLayout() {
           <div className="bg-neutral-900 text-white p-1.5 rounded-xl">
             <Layout size={20} />
           </div>
-          <span className="font-black text-xs tracking-[0.2em] uppercase hidden sm:block">Restoflow</span>
+          <span className="font-black text-xs tracking-[0.2em] uppercase hidden sm:block">Restaurante Pro</span>
         </div>
         
         <RoleSelector />

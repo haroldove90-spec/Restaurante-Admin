@@ -11,19 +11,16 @@ import { Category } from '../types';
 import { motion } from 'motion/react';
 
 export const CustomerDashboard: React.FC = () => {
-  const { menu, orders, tables } = useRestaurant();
-  const [activeCategory, setActiveCategory] = useState<Category | 'todos'>('todos');
+  const { menu, orders, tables, categories: rawCategories } = useRestaurant();
+  const [activeCategory, setActiveCategory] = useState<string | 'todos'>('todos');
 
   // For the customer demo, we'll assume they are at Table 1
   const tableOneId = tables.find(t => t.number === 1)?.id;
   const myOrder = orders.find(o => o.tableId === tableOneId && o.status === 'active');
 
-  const categories: { id: Category | 'todos', label: string }[] = [
+  const categories = [
     { id: 'todos', label: 'Todo' },
-    { id: 'entradas', label: 'Entradas' },
-    { id: 'platos_principales', label: 'Platos Fondos' },
-    { id: 'bebidas', label: 'Bebidas' },
-    { id: 'postres', label: 'Postres' },
+    ...rawCategories.map(c => ({ id: c.name, label: c.name }))
   ];
 
   const filteredMenu = activeCategory === 'todos' 
@@ -37,7 +34,7 @@ export const CustomerDashboard: React.FC = () => {
           <ShoppingBasket size={40} />
         </div>
         <div>
-          <h1 className="text-3xl font-black italic tracking-tight">RESTOFLOW</h1>
+          <h1 className="text-3xl font-black italic tracking-tight">RESTAURANTE PRO</h1>
           <p className="text-neutral-500 font-medium">Experiencia Gastronómica Digital</p>
         </div>
       </header>
