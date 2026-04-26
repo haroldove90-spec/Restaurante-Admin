@@ -64,19 +64,26 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           supabase.from('orders').select('*')
         ]);
 
-        if (menuData) setMenu(menuData);
+        if (menuData) {
+          setMenu(menuData.map(m => ({
+            ...m,
+            imageUrl: m.image_url // map image_url to imageUrl
+          })));
+        }
         if (tablesData) setTables(tablesData);
         if (employeesData) setEmployees(employeesData);
-        if (ordersData) setOrders(ordersData.map(o => ({
-          id: o.id,
-          tableId: o.table_id, // map snake_case to camelCase
-          waiterId: o.waiter_id,
-          items: o.items,
-          totalPrice: parseFloat(o.total_price),
-          status: o.status,
-          createdAt: Number(o.created_at),
-          updatedAt: Number(o.updated_at)
-        })));
+        if (ordersData) {
+          setOrders(ordersData.map(o => ({
+            id: o.id,
+            tableId: o.table_id,
+            waiterId: o.waiter_id,
+            items: o.items,
+            totalPrice: parseFloat(o.total_price),
+            status: o.status,
+            createdAt: Number(o.created_at),
+            updatedAt: Number(o.updated_at)
+          })));
+        }
       } catch (err) {
         console.error('Error fetching Supabase data:', err);
       } finally {
@@ -178,11 +185,22 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const addMenuItem = async (item: Omit<MenuItem, 'id'>) => {
     const id = `m${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    await supabase.from('menu_items').insert({ ...item, id });
+    const { imageUrl, ...rest } = item;
+    const { error } = await supabase.from('menu_items').insert({ 
+      ...rest, 
+      id,
+      image_url: imageUrl // Mapping for DB
+    });
+    if (error) console.error("Error adding menu item:", error);
   };
 
   const updateMenuItem = async (id: string, item: Partial<MenuItem>) => {
-    await supabase.from('menu_items').update(item).eq('id', id);
+    const { imageUrl, ...rest } = item;
+    const updateData: any = { ...rest };
+    if (imageUrl !== undefined) updateData.image_url = imageUrl;
+    
+    const { error } = await supabase.from('menu_items').update(updateData).eq('id', id);
+    if (error) console.error("Error updating menu item:", error);
   };
 
   const deleteMenuItem = async (id: string) => {
