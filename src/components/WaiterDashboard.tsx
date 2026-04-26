@@ -132,14 +132,14 @@ export const WaiterDashboard: React.FC = () => {
     setSelectedTable(table);
     if (table.status === 'occupied') {
       const activeOrder = orders.find(o => o.tableId === table.id && o.status === 'active');
-      if (activeOrder) {
+      if (activeOrder && activeOrder.items.length > 0) {
         const diners = new Set(activeOrder.items.map(i => i.dinerNumber || 1));
-        setNumDiners(diners.size);
+        setNumDiners(Math.max(1, diners.size));
       } else {
-        setNumDiners(table.currentDiners || 1);
+        setNumDiners(Math.max(1, table.capacity || 4)); // Default to capacity if unknown
       }
     } else {
-      setNumDiners(0); // Needs initialization
+      setNumDiners(0); // Trigger modal for new service
     }
   };
 
