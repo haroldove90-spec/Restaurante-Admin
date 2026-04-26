@@ -1,8 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Get these from import.meta.env
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const rawUrl = import.meta.env.VITE_SUPABASE_URL || '';
+// Clean URL to avoid double slashes or extra paths that cause PGRST125
+const supabaseUrl = rawUrl.replace(/\/$/, "").replace(/\/rest\/v1$/, "");
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_ANO || '';
 
 // Always export a client, but warn if keys are missing
 export const supabase = createClient(
@@ -11,5 +13,8 @@ export const supabase = createClient(
 );
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase credentials not found. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.');
+  console.warn('⚠️ Supabase credentials not found. Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.');
+  if (!supabaseAnonKey && import.meta.env.VITE_SUPABASE_ANO) {
+    console.info('ℹ️ Using VITE_SUPABASE_ANO as fallback for Anon Key.');
+  }
 }
