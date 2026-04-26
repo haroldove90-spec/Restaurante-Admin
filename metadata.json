@@ -1,6 +1,6 @@
 {
-  "name": "RestoFlow Manager",
-  "description": "A multi-role restaurant management platform with real-time order tracking, kitchen displays, and sales analytics for Admin, Waiters, Kitchen, and Customers.",
+  "name": "Restaurante Pro",
+  "description": "Sistema avanzado de gestión gastronómica con control de comensales, categorías dinámicas y soporte PWA.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

@@ -25,6 +25,7 @@ export interface Table {
   number: number;
   status: TableStatus;
   capacity: number;
+  currentDiners?: number; // Number of diners currently at the table
 }
 
 export type OrderItemStatus = 'pending' | 'cooking' | 'ready' | 'served';
@@ -37,6 +38,7 @@ export interface OrderItem {
   quantity: number;
   status: OrderItemStatus;
   notes?: string;
+  dinerNumber?: number; // Which diner ordered this item
 }
 
 export type OrderStatus = 'active' | 'completed' | 'cancelled';
@@ -44,7 +46,7 @@ export type OrderStatus = 'active' | 'completed' | 'cancelled';
 export interface Order {
   id: string;
   tableId: string;
-  waiterId?: string; // New field to track who took the order
+  waiterId?: string;
   items: OrderItem[];
   totalPrice: number;
   status: OrderStatus;
@@ -52,14 +54,17 @@ export interface Order {
   updatedAt: number;
 }
 
-export type Category = 'entradas' | 'platos_principales' | 'bebidas' | 'postres';
+export interface Category {
+  id: string;
+  name: string;
+}
 
 export interface MenuItem {
   id: string;
   name: string;
   description: string;
   price: number;
-  category: Category;
+  category: string; // Changed from enum to string for dynamic categories
   imageUrl?: string;
   available: boolean;
 }

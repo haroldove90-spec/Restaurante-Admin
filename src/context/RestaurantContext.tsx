@@ -17,10 +17,11 @@ export interface Notification {
 
 interface RestaurantContextType extends RestaurantState {
   currentRole: Role;
+  categories: Category[];
   notifications: Notification[];
   loading: boolean;
   setRole: (role: Role) => void;
-  updateTableStatus: (tableId: string, status: Table['status']) => void;
+  updateTableStatus: (tableId: string, status: Table['status'], currentDiners?: number) => void;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateOrderItemStatus: (orderId: string, itemId: string, status: OrderItemStatus) => void;
   completeOrder: (orderId: string) => void;
@@ -28,6 +29,8 @@ interface RestaurantContextType extends RestaurantState {
   addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
   updateMenuItem: (id: string, item: Partial<MenuItem>) => void;
   deleteMenuItem: (id: string) => void;
+  addCategory: (name: string) => void;
+  deleteCategory: (id: string) => void;
   employees: Employee[];
   addEmployee: (employee: Omit<Employee, 'id'>) => void;
   updateEmployee: (id: string, employee: Partial<Employee>) => void;
@@ -46,6 +49,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   });
   const [tables, setTables] = useState<Table[]>([]);
   const [menu, setMenu] = useState<MenuItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -67,12 +71,14 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           { data: menuData },
           { data: tablesData },
           { data: employeesData },
-          { data: ordersData }
+          { data: ordersData },
+          { data: categoriesData }
         ] = await Promise.all([
           supabase.from('menu_items').select('*'),
           supabase.from('tables').select('*').order('number'),
           supabase.from('employees').select('*'),
-          supabase.from('orders').select('*')
+          supabase.from('orders').select('*'),
+          supabase.from('categories').select('*').order('name')
         ]);
 
         if (!isMounted) return;
@@ -83,7 +89,15 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             imageUrl: m.image || m.image_url // handle both common column names
           })));
         }
-        if (tablesData) setTables(tablesData);
+        if (tablesData) {
+          setTables(tablesData.map(t => ({
+            ...t,
+            currentDiners: t.current_diners || 0
+          })));
+        }
+        if (categoriesData) {
+          setCategories(categoriesData);
+        }
         if (employeesData) {
           setEmployees(employeesData.map(e => ({
             id: e.id,
@@ -123,6 +137,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       supabase.channel('table_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'tables' }, subFetch).subscribe(),
       supabase.channel('employee_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, subFetch).subscribe(),
       supabase.channel('order_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, subFetch).subscribe(),
+      supabase.channel('category_changes').on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, subFetch).subscribe(),
     ];
 
     return () => {
@@ -145,8 +160,15 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
-  const updateTableStatus = async (tableId: string, status: Table['status']) => {
-    await supabase.from('tables').update({ status }).eq('id', tableId);
+  const updateTableStatus = async (tableId: string, status: Table['status'], currentDiners?: number) => {
+    const updateData: any = { status };
+    if (currentDiners !== undefined) updateData.current_diners = currentDiners;
+
+    const { error } = await supabase.from('tables').update(updateData).eq('id', tableId);
+    if (error && (error.message.includes("column \"current_diners\"") || error.code === '42703')) {
+      // Fallback if column missing
+      await supabase.from('tables').update({ status }).eq('id', tableId);
+    }
   };
 
   const addOrder = async (orderData: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -165,7 +187,9 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
 
     if (!error) {
-      updateTableStatus(orderData.tableId, 'occupied');
+      // Get diners count from order items
+      const diners = new Set(orderData.items.map(i => i.dinerNumber || 1));
+      updateTableStatus(orderData.tableId, 'occupied', diners.size);
       const tableNum = tables.find(t => t.id === orderData.tableId)?.number;
       addNotification(`Nueva orden: Mesa ${tableNum}`, 'info');
     }
@@ -179,7 +203,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       if (item.id === itemId) {
         if (status === 'ready') {
           const tableNum = tables.find(t => t.id === order.tableId)?.number;
-          addNotification(`${item.name} de Mesa ${tableNum} está LISTO`, 'success');
+          const dinerInfo = item.dinerNumber ? ` (C${item.dinerNumber})` : '';
+          addNotification(`${item.name}${dinerInfo} de Mesa ${tableNum} está LISTO`, 'success');
         }
         return { ...item, status };
       }
@@ -196,7 +221,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const order = orders.find(o => o.id === orderId);
     if (order) {
       await supabase.from('orders').update({ status: 'completed', updated_at: Date.now() }).eq('id', orderId);
-      updateTableStatus(order.tableId, 'dirty');
+      updateTableStatus(order.tableId, 'dirty', 0);
     }
   };
 
@@ -204,7 +229,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const order = orders.find(o => o.id === orderId);
     if (order) {
       await supabase.from('orders').update({ status: 'cancelled', updated_at: Date.now() }).eq('id', orderId);
-      updateTableStatus(order.tableId, 'available');
+      updateTableStatus(order.tableId, 'available', 0);
     }
   };
 
@@ -312,6 +337,19 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     else addNotification("Empleado eliminado", "success");
   };
 
+  const addCategory = async (name: string) => {
+    const id = `c${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const { error } = await supabase.from('categories').insert({ id, name });
+    if (error) addNotification(`Error al guardar categoría: ${error.message}`, "warning");
+    else addNotification("Categoría añadida", "success");
+  };
+
+  const deleteCategory = async (id: string) => {
+    const { error } = await supabase.from('categories').delete().eq('id', id);
+    if (error) addNotification(`Error al eliminar: ${error.message}`, "warning");
+    else addNotification("Categoría eliminada", "success");
+  };
+
   const uploadImage = async (file: File) => {
     try {
       const fileExt = file.name.split('.').pop();
@@ -352,6 +390,7 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setRole,
       tables,
       menu,
+      categories,
       orders,
       notifications,
       employees,
@@ -364,6 +403,8 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       addMenuItem,
       updateMenuItem,
       deleteMenuItem,
+      addCategory,
+      deleteCategory,
       addEmployee,
       updateEmployee,
       deleteEmployee,

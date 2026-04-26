@@ -14,11 +14,13 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 export const WaiterDashboard: React.FC = () => {
-  const { tables, menu, orders, addOrder, updateTableStatus, completeOrder, employees } = useRestaurant();
+  const { tables, menu, orders, addOrder, updateTableStatus, completeOrder, employees, categories: rawCategories } = useRestaurant();
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
+  const [numDiners, setNumDiners] = useState<number>(0);
+  const [activeDiner, setActiveDiner] = useState<number>(1);
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeCategory, setActiveCategory] = useState<Category | 'todos'>('todos');
+  const [activeCategory, setActiveCategory] = useState<string | 'todos'>('todos');
   const [showSales, setShowSales] = useState(false);
   const [selectedWaiterId, setSelectedWaiterId] = useState<string>('');
 
@@ -29,28 +31,29 @@ export const WaiterDashboard: React.FC = () => {
   // Effective waiter name for current session
   const currentWaiter = waiters.find(w => w.id === selectedWaiterId)?.name || "Mesero Demo";
 
-  const categories: { id: Category | 'todos', label: string }[] = [
+  const categories = [
     { id: 'todos', label: 'Todo' },
-    { id: 'entradas', label: 'Entradas' },
-    { id: 'platos_principales', label: 'Fondos' },
-    { id: 'bebidas', label: 'Bebidas' },
-    { id: 'postres', label: 'Postres' },
+    ...rawCategories.map(c => ({ id: c.name, label: c.name }))
   ];
 
   const addToCart = (item: MenuItem) => {
     if (!item.available) return;
     setCart(prev => {
-      const existing = prev.find(i => i.menuItemId === item.id);
-      if (existing) {
-        return prev.map(i => i.menuItemId === item.id ? { ...i, quantity: i.quantity + 1 } : i);
+      // Find if item already exists FOR THIS DINER
+      const existingIndex = prev.findIndex(i => i.menuItemId === item.id && i.dinerNumber === activeDiner);
+      
+      if (existingIndex > -1) {
+        return prev.map((i, idx) => idx === existingIndex ? { ...i, quantity: i.quantity + 1 } : i);
       }
+      
       return [...prev, {
         id: `oi${Date.now()}${Math.random()}`,
         menuItemId: item.id,
         name: item.name,
         price: item.price,
         quantity: 1,
-        status: 'pending'
+        status: 'pending',
+        dinerNumber: activeDiner
       }];
     });
   };
@@ -79,6 +82,23 @@ export const WaiterDashboard: React.FC = () => {
     });
     setCart([]);
     setSelectedTable(null);
+    setNumDiners(0);
+    setActiveDiner(1);
+  };
+
+  const handleTableSelect = (table: Table) => {
+    setSelectedTable(table);
+    if (table.status === 'occupied') {
+      const activeOrder = orders.find(o => o.tableId === table.id && o.status === 'active');
+      if (activeOrder) {
+        const diners = new Set(activeOrder.items.map(i => i.dinerNumber || 1));
+        setNumDiners(diners.size);
+      } else {
+        setNumDiners(table.currentDiners || 1);
+      }
+    } else {
+      setNumDiners(0); // Needs initialization
+    }
   };
 
   const myCompletedOrders = orders.filter(o => o.status === 'completed' && o.waiterId === currentWaiter);
@@ -109,6 +129,8 @@ export const WaiterDashboard: React.FC = () => {
     if (activeOrderForTable) {
       completeOrder(activeOrderForTable.id);
       setSelectedTable(null);
+      setNumDiners(0);
+      setActiveDiner(1);
     }
   };
 
@@ -205,7 +227,7 @@ export const WaiterDashboard: React.FC = () => {
                 {tables.map(table => (
                   <button
                     key={table.id}
-                    onClick={() => setSelectedTable(table)}
+                    onClick={() => handleTableSelect(table)}
                     className={cn(
                       "relative aspect-square rounded-2xl flex flex-col items-center justify-center gap-2 border-2 transition-all p-4",
                       table.status === 'available' ? "border-emerald-100 bg-emerald-50 text-emerald-700 hover:border-emerald-300" :
@@ -225,20 +247,23 @@ export const WaiterDashboard: React.FC = () => {
                     </span>
                     
                     {table.status === 'occupied' && (
-                      <div className="flex gap-1 mt-2">
-                        {(() => {
-                          const order = orders.find(o => o.tableId === table.id && o.status === 'active');
-                          const allReady = order?.items.every(i => i.status === 'ready');
-                          const someCooking = order?.items.some(i => i.status === 'cooking');
-                          
-                          return (
-                            <>
-                              <div className={cn("w-3 h-3 rounded-full border border-neutral-200", order ? "bg-orange-500" : "bg-neutral-50")}></div>
-                              <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", someCooking ? "bg-amber-400" : "bg-neutral-50")}></div>
-                              <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", allReady ? "bg-emerald-500" : "bg-neutral-50")}></div>
-                            </>
-                          );
-                        })()}
+                      <div className="flex flex-col items-center gap-1 mt-2">
+                        <span className="text-[9px] font-black">{table.currentDiners} COMENSALES</span>
+                        <div className="flex gap-1">
+                          {(() => {
+                            const order = orders.find(o => o.tableId === table.id && o.status === 'active');
+                            const allReady = order?.items.every(i => i.status === 'ready');
+                            const someCooking = order?.items.some(i => i.status === 'cooking');
+                            
+                            return (
+                              <>
+                                <div className={cn("w-3 h-3 rounded-full border border-neutral-200", order ? "bg-orange-500" : "bg-neutral-50")}></div>
+                                <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", someCooking ? "bg-amber-400" : "bg-neutral-50")}></div>
+                                <div className={cn("w-3 h-3 rounded-full border border-neutral-200 shadow-sm", allReady ? "bg-emerald-500" : "bg-neutral-50")}></div>
+                              </>
+                            );
+                          })()}
+                        </div>
                       </div>
                     )}
 
@@ -258,16 +283,67 @@ export const WaiterDashboard: React.FC = () => {
             exit={{ x: -20, opacity: 0 }}
             className="flex flex-col lg:flex-row gap-6 h-full"
           >
+            {/* Modal for Diners Count if new table */}
+            {selectedTable.status === 'available' && numDiners === 0 && (
+              <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  className="bg-white p-8 rounded-3xl w-full max-w-sm text-center shadow-2xl"
+                >
+                  <h3 className="text-2xl font-black mb-2">Comensales</h3>
+                  <p className="text-neutral-500 text-sm mb-6">¿Cuántas personas ocuparán la mesa {selectedTable.number}?</p>
+                  <div className="grid grid-cols-3 gap-3 mb-8">
+                    {[1, 2, 3, 4, 5, 6].map(n => (
+                      <button 
+                        key={n}
+                        onClick={() => { setNumDiners(n); setActiveDiner(1); }}
+                        className="py-4 bg-neutral-100 rounded-2xl font-black text-xl hover:bg-neutral-900 hover:text-white transition-all shadow-sm"
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                  <button 
+                    onClick={() => setSelectedTable(null)}
+                    className="text-neutral-400 font-bold hover:text-neutral-900"
+                  >
+                    Cancelar
+                  </button>
+                </motion.div>
+              </div>
+            )}
+
             {/* Menu Selection */}
             <div className="flex-1 space-y-4">
-              <div className="flex items-center gap-4">
-                <button 
-                  onClick={() => setSelectedTable(null)}
-                  className="p-2 hover:bg-neutral-100 rounded-full transition-colors"
-                >
-                  <ArrowLeft size={20} />
-                </button>
-                <h2 className="text-xl font-bold">Mesa {selectedTable.number}</h2>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => { setSelectedTable(null); setNumDiners(0); }}
+                    className="p-2 hover:bg-neutral-100 rounded-full transition-colors"
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+                  <div>
+                    <h2 className="text-xl font-bold">Mesa {selectedTable.number}</h2>
+                    <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{numDiners} Comensales</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-1 bg-neutral-100 p-1 rounded-xl">
+                  {Array.from({ length: numDiners }).map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setActiveDiner(i + 1)}
+                      className={cn(
+                        "px-3 py-1 rounded-lg text-[10px] font-black transition-all",
+                        activeDiner === i + 1 ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-400 hover:text-neutral-600"
+                      )}
+                    >
+                      C{i + 1}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3">
@@ -329,91 +405,100 @@ export const WaiterDashboard: React.FC = () => {
             {/* Current Cart / Order Details */}
             <div className="w-full lg:w-96 flex flex-col bg-white rounded-3xl border border-neutral-200 shadow-sm overflow-hidden min-h-[500px]">
               <div className="p-6 bg-neutral-900 text-white flex justify-between items-center">
-                <span className="font-bold">ORDEN ACTUAL</span>
+                <span className="font-bold uppercase tracking-tighter">ORDEN MESA {selectedTable.number}</span>
                 {activeOrderForTable && (
                   <span className="text-[10px] px-2 py-1 bg-emerald-500 rounded-md font-bold">EN PROCESO</span>
                 )}
               </div>
 
-              <div className="flex-1 p-6 space-y-4 overflow-y-auto">
-                {activeOrderForTable ? (
-                  <div className="space-y-4">
-                    {activeOrderForTable.items.map(item => (
-                      <div key={item.id} className="flex justify-between items-center pb-2 border-b border-neutral-50">
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-neutral-400">Qty: {item.quantity}</span>
-                            <span className={cn(
-                              "text-[10px] font-bold px-1.5 py-0.5 rounded",
-                              item.status === 'pending' ? "bg-neutral-100 text-neutral-600" :
-                              item.status === 'cooking' ? "bg-orange-100 text-orange-600" :
-                              item.status === 'ready' ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
-                            )}>
-                              {item.status.toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="font-bold">{formatCurrency(item.price * item.quantity)}</span>
+              <div className="flex-1 p-4 space-y-6 overflow-y-auto">
+                {Array.from({ length: numDiners }).map((_, idx) => {
+                  const dinerIdx = idx + 1;
+                  const activeItems = activeOrderForTable?.items.filter(i => (i.dinerNumber || 1) === dinerIdx) || [];
+                  const cartItems = cart.filter(i => i.dinerNumber === dinerIdx);
+                  
+                  if (activeItems.length === 0 && cartItems.length === 0) return null;
+
+                  return (
+                    <div key={dinerIdx} className="space-y-2">
+                      <div className="flex justify-between items-center bg-neutral-50 px-3 py-1.5 rounded-lg border-l-4 border-neutral-900">
+                        <span className="text-xs font-black">COMENSAL {dinerIdx}</span>
+                        <span className="text-[10px] font-bold text-neutral-400">
+                          {activeItems.length + cartItems.length} items
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                ) : cart.length > 0 ? (
-                  <div className="space-y-4">
-                    {cart.map(item => (
-                      <div key={item.id} className="flex justify-between items-center">
-                        <div>
-                          <p className="font-medium">{item.name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-neutral-100 rounded-md"><Minus size={14} /></button>
-                            <span className="text-sm w-4 text-center">{item.quantity}</span>
-                            <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-neutral-100 rounded-md"><Plus size={14} /></button>
+                      
+                      <div className="space-y-3 px-1">
+                        {activeItems.map(item => (
+                          <div key={item.id} className="flex justify-between items-center">
+                            <div>
+                              <p className="text-sm font-medium">{item.name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] text-neutral-400">x{item.quantity}</span>
+                                <span className={cn(
+                                  "text-[8px] font-black px-1.5 py-0.5 rounded",
+                                  item.status === 'pending' ? "bg-neutral-100 text-neutral-600" :
+                                  item.status === 'cooking' ? "bg-orange-100 text-orange-600" :
+                                  item.status === 'ready' ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
+                                )}>
+                                  {item.status.toUpperCase()}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="text-sm font-bold">{formatCurrency(item.price * item.quantity)}</span>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold">{formatCurrency(item.price * item.quantity)}</span>
-                          <button onClick={() => removeFromCart(item.id)} className="text-neutral-300 hover:text-red-500"><Trash2 size={16} /></button>
-                        </div>
+                        ))}
+                        
+                        {cartItems.map(item => (
+                          <div key={item.id} className="flex justify-between items-center group">
+                            <div>
+                              <p className="text-sm font-medium italic text-blue-600">{item.name}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <button onClick={() => updateQuantity(item.id, -1)} className="p-1 hover:bg-neutral-100 rounded-md text-neutral-400"><Minus size={12} /></button>
+                                <span className="text-xs w-4 text-center font-bold text-blue-600">{item.quantity}</span>
+                                <button onClick={() => updateQuantity(item.id, 1)} className="p-1 hover:bg-neutral-100 rounded-md text-neutral-400"><Plus size={12} /></button>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-blue-600">{formatCurrency(item.price * item.quantity)}</span>
+                              <button onClick={() => removeFromCart(item.id)} className="text-neutral-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14} /></button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="h-full flex flex-col items-center justify-center opacity-30 text-center">
+                    </div>
+                  );
+                })}
+
+                {cart.length === 0 && !activeOrderForTable && (
+                  <div className="h-full flex flex-col items-center justify-center opacity-30 text-center py-20">
                     <Utensils size={48} className="mb-4" />
-                    <p>No hay items seleccionados</p>
+                    <p className="text-sm font-medium">No hay pedidos registrados</p>
                   </div>
                 )}
               </div>
 
-              <div className="p-6 bg-neutral-50 space-y-4">
-                <div className="flex justify-between items-center text-neutral-500">
-                  <span>Subtotal</span>
-                  <span>{formatCurrency((activeOrderForTable?.totalPrice || cart.reduce((s, i) => s + (i.price * i.quantity), 0)) * 0.82)}</span>
-                </div>
-                <div className="flex justify-between items-center text-neutral-500">
-                  <span>IGV (18%)</span>
-                  <span>{formatCurrency((activeOrderForTable?.totalPrice || cart.reduce((s, i) => s + (i.price * i.quantity), 0)) * 0.18)}</span>
-                </div>
-                <div className="pt-2 border-t border-neutral-200 flex justify-between items-center text-xl font-black">
-                  <span>Total</span>
+              <div className="p-6 bg-neutral-50 space-y-4 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
+                <div className="pt-2 flex justify-between items-center text-2xl font-black tracking-tighter">
+                  <span className="text-neutral-400 text-sm uppercase tracking-widest font-bold">Total Cuenta</span>
                   <span>{formatCurrency(activeOrderForTable?.totalPrice || cart.reduce((s, i) => s + (i.price * i.quantity), 0))}</span>
                 </div>
 
                 {activeOrderForTable ? (
                   <button 
                     onClick={handleCompleteOrder}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-neutral-900 text-white rounded-2xl font-bold hover:bg-emerald-600 transition-colors"
+                    className="w-full flex items-center justify-center gap-2 py-4 bg-emerald-600 text-white rounded-2xl font-black hover:bg-emerald-700 transition-all shadow-lg active:scale-95"
                   >
                     <CheckCircle size={20} />
-                    COBRAR Y CERRAR
+                    FINALIZAR Y COBRAR
                   </button>
                 ) : (
                   <button 
                     disabled={cart.length === 0}
                     onClick={handleCreateOrder}
-                    className="w-full py-3 bg-neutral-900 text-white rounded-2xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black transition-colors"
+                    className="w-full py-4 bg-neutral-900 text-white rounded-2xl font-black tracking-widest disabled:opacity-50 disabled:cursor-not-allowed hover:bg-black transition-all shadow-lg active:scale-95"
                   >
-                    ENVIAR A COCINA
+                    ENVIAR COMANDA
                   </button>
                 )}
               </div>
