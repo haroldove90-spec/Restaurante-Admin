@@ -113,8 +113,8 @@ export const CustomerDashboard: React.FC = () => {
             className="group flex gap-4 p-4 rounded-3xl bg-neutral-50 hover:bg-white border border-transparent hover:border-neutral-200 transition-all cursor-pointer"
           >
             <div className="w-24 h-24 bg-neutral-100 rounded-2xl flex-shrink-0 flex items-center justify-center relative overflow-hidden border border-neutral-100">
-              {item.image ? (
-                <img src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              {item.imageUrl ? (
+                <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
                 <Star className="text-neutral-200" size={32} />
               )}

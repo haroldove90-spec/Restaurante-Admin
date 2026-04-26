@@ -189,9 +189,14 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const { error } = await supabase.from('menu_items').insert({ 
       ...rest, 
       id,
-      image_url: imageUrl // Mapping for DB
+      image_url: imageUrl 
     });
-    if (error) console.error("Error adding menu item:", error);
+    if (error) {
+      console.error("Error adding menu item:", error);
+      addNotification("Error al guardar el platillo", "warning");
+    } else {
+      addNotification("Platillo guardado con éxito", "success");
+    }
   };
 
   const updateMenuItem = async (id: string, item: Partial<MenuItem>) => {
@@ -200,24 +205,45 @@ export const RestaurantProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (imageUrl !== undefined) updateData.image_url = imageUrl;
     
     const { error } = await supabase.from('menu_items').update(updateData).eq('id', id);
-    if (error) console.error("Error updating menu item:", error);
+    if (error) {
+      console.error("Error updating menu item:", error);
+      addNotification("Error al actualizar platillo", "warning");
+    } else {
+      addNotification("Platillo actualizado", "success");
+    }
   };
 
   const deleteMenuItem = async (id: string) => {
-    await supabase.from('menu_items').delete().eq('id', id);
+    const { error } = await supabase.from('menu_items').delete().eq('id', id);
+    if (error) addNotification("Error al eliminar", "warning");
+    else addNotification("Platillo eliminado", "success");
   };
 
   const addEmployee = async (emp: Omit<Employee, 'id'>) => {
     const id = `e${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    await supabase.from('employees').insert({ ...emp, id });
+    const { error } = await supabase.from('employees').insert({ ...emp, id });
+    if (error) {
+      console.error("Error adding employee:", error);
+      addNotification("Error al guardar empleado", "warning");
+    } else {
+      addNotification("Empleado registrado", "success");
+    }
   };
 
   const updateEmployee = async (id: string, emp: Partial<Employee>) => {
-    await supabase.from('employees').update(emp).eq('id', id);
+    const { error } = await supabase.from('employees').update(emp).eq('id', id);
+    if (error) {
+      console.error("Error updating employee:", error);
+      addNotification("Error al actualizar empleado", "warning");
+    } else {
+      addNotification("Empleado actualizado", "success");
+    }
   };
 
   const deleteEmployee = async (id: string) => {
-    await supabase.from('employees').delete().eq('id', id);
+    const { error } = await supabase.from('employees').delete().eq('id', id);
+    if (error) addNotification("Error al eliminar empleado", "warning");
+    else addNotification("Empleado eliminado", "success");
   };
 
   return (

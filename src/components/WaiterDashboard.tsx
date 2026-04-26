@@ -311,7 +311,7 @@ export const WaiterDashboard: React.FC = () => {
                     )}
                   >
                     <div className="w-12 h-12 bg-neutral-100 rounded-lg mr-3 flex-shrink-0 overflow-hidden">
-                      {item.image && <img src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />}
+                      {item.imageUrl && <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">

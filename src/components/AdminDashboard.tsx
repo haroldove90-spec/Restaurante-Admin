@@ -203,8 +203,8 @@ export const AdminDashboard: React.FC = () => {
                 <div key={item.id} className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-sm group hover:border-neutral-400 transition-all">
                   <div className="flex gap-4">
                     <div className="w-20 h-20 bg-neutral-100 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden border border-neutral-50">
-                      {item.image ? (
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      {item.imageUrl ? (
+                        <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
                         <ImageIcon size={24} className="text-neutral-300" />
                       )}
@@ -266,7 +266,7 @@ export const AdminDashboard: React.FC = () => {
                           description: formData.get('description') as string,
                           price: parseFloat(formData.get('price') as string),
                           category: formData.get('category') as Category,
-                          image: formData.get('image') as string,
+                          imageUrl: formData.get('imageUrl') as string,
                           available: formData.get('available') === 'on'
                         };
                         if (isAddingItem) addMenuItem(itemData);
@@ -302,7 +302,7 @@ export const AdminDashboard: React.FC = () => {
 
                       <div className="space-y-1 text-left">
                         <label className="text-xs font-bold text-neutral-400 uppercase">URL de Imagen</label>
-                        <input name="image" defaultValue={editingItem?.image} placeholder="https://ejemplo.com/imagen.jpg" className="w-full px-4 py-2 bg-neutral-50 border border-neutral-100 rounded-xl" />
+                        <input name="imageUrl" defaultValue={editingItem?.imageUrl} placeholder="https://ejemplo.com/imagen.jpg" className="w-full px-4 py-2 bg-neutral-50 border border-neutral-100 rounded-xl" />
                       </div>
 
                       <div className="flex items-center gap-2 py-2">

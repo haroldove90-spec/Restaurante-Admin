@@ -58,7 +58,7 @@ export interface MenuItem {
   description: string;
   price: number;
   category: Category;
-  image?: string;
+  imageUrl?: string;
   available: boolean;
 }
 
